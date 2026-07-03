@@ -107,6 +107,8 @@
 
   .footer-note { text-align:center; font-size:10px; color:#888; margin: 5mm 0; }
 
+  .calorie-hint { font-size:10.5px; color:#2E7D32; line-height:1.4; }
+
   .photo-field { display:flex; flex-direction:column; gap:1mm; font-size:11.5px; }
   .photo-field label { font-weight:bold; color:#555; }
   .photo-preview-wrap { display:flex; align-items:center; gap:2mm; }
@@ -264,8 +266,12 @@
               <option>아침</option><option>점심</option><option>저녁</option><option>간식</option>
             </select>
           </div>
-          <div class="form-field grow"><label>메뉴</label><input type="text" name="menu" placeholder="사진만 첨부해도 돼요"></div>
-          <div class="form-field"><label>예상 칼로리</label><input type="number" name="calorie" min="0" placeholder="kcal (끼니 700↑/간식 300↑ 주의)"></div>
+          <div class="form-field grow"><label>메뉴</label><input type="text" name="menu" placeholder="사진만 첨부해도 돼요" oninput="handleMenuInput(this.value)"></div>
+          <div class="form-field">
+            <label>예상 칼로리</label>
+            <input type="number" name="calorie" min="0" placeholder="kcal (끼니 700↑/간식 300↑ 주의)">
+            <div class="calorie-hint" id="calorie-hint" style="display:none;"></div>
+          </div>
           <div class="form-field grow"><label>메모</label><input type="text" name="note" placeholder="선택 입력"></div>
         </div>
         <div class="form-row">
@@ -557,6 +563,75 @@ const CALORIE_LIMIT = { '아침':700, '점심':700, '저녁':700, '간식':300 }
 function calorieStatus(meal, calorie) {
   const limit = CALORIE_LIMIT[meal] || 700;
   return calorie > limit ? {cls:'warn', text:'높음'} : {cls:'normal', text:'정상'};
+}
+
+const FOOD_CALORIE_DB = {
+  '흰쌀밥':300,'잡곡밥':300,'현미밥':300,'백미밥':300,'비빔밥':550,'볶음밥':600,'김밥':450,'주먹밥':200,
+  '죽':250,'카레라이스':650,'오므라이스':600,'덮밥':600,'초밥':400,'회':300,'삼계탕':700,'보쌈':600,'족발':700,
+  '라면':500,'짜장면':700,'짬뽕':650,'냉면':550,'칼국수':500,'우동':450,'잔치국수':400,'파스타':600,'스파게티':600,
+  '쫄면':500,'비빔국수':500,'냉모밀':450,'막국수':500,
+  '김치찌개':300,'된장찌개':250,'순두부찌개':300,'부대찌개':600,'갈비탕':500,'설렁탕':500,'육개장':450,
+  '미역국':200,'계란국':150,'감자탕':600,'추어탕':400,
+  '삼겹살':600,'갈비':650,'불고기':500,'제육볶음':550,'치킨':800,'후라이드치킨':800,'양념치킨':850,
+  '돈까스':700,'스테이크':600,'곱창':600,'닭갈비':650,'닭볶음탕':600,'장어구이':550,
+  '떡볶이':500,'순대':300,'튀김':400,'어묵':150,'핫도그':350,'김치전':400,'파전':450,'감자전':400,'모듬전':500,
+  '식빵':250,'크루아상':300,'도넛':300,'케이크':400,'아이스크림':200,'마카롱':90,'초코파이':130,
+  '와플':350,'팬케이크':400,'빙수':500,'베이글':280,'머핀':350,
+  '사과':100,'바나나':100,'오렌지':70,'포도':100,'딸기':50,'수박':50,'참외':60,'배':100,'귤':50,
+  '아메리카노':10,'카페라떼':150,'카푸치노':120,'콜라':150,'사이다':150,'우유':130,'두유':100,
+  '요구르트':80,'오렌지주스':120,'스무디':250,'주스':120,
+  '김치':15,'계란찜':150,'계란말이':200,'계란후라이':90,'두부':100,'나물':50,'어묵볶음':150,'잡채':300,
+  '만두':400,'군만두':400,'물만두':350,'멸치볶음':80,'콩나물무침':40,
+  '햄버거':500,'치즈버거':550,'피자':300,'샌드위치':350,'감자튀김':350,'핫바':250,
+  '과자':150,'초콜릿':250,'견과류':200,'프로틴바':200,'그릭요거트':150
+};
+
+function estimateCalorie(text) {
+  if (!text || !text.trim()) return null;
+  const segments = text.split(/[,+\/、·]/).map(s => s.trim()).filter(Boolean);
+  const searchIn = segments.length ? segments : [text.trim()];
+  const matched = [];
+  let total = 0;
+  searchIn.forEach(seg => {
+    const segNorm = seg.replace(/\s+/g,'');
+    if (!segNorm) return;
+    let bestKey = null;
+    if (Object.prototype.hasOwnProperty.call(FOOD_CALORIE_DB, segNorm)) {
+      bestKey = segNorm;
+    } else {
+      for (const key in FOOD_CALORIE_DB) {
+        if (segNorm.includes(key)) {
+          if (!bestKey || key.length > bestKey.length) bestKey = key;
+        }
+      }
+      if (!bestKey) {
+        for (const key in FOOD_CALORIE_DB) {
+          if (key.includes(segNorm)) {
+            if (!bestKey || key.length < bestKey.length) bestKey = key;
+          }
+        }
+      }
+    }
+    if (bestKey && !matched.includes(bestKey)) {
+      matched.push(bestKey);
+      total += FOOD_CALORIE_DB[bestKey];
+    }
+  });
+  if (matched.length === 0) return null;
+  return { total, matched };
+}
+
+function handleMenuInput(text) {
+  const hintEl = document.getElementById('calorie-hint');
+  const calorieInput = document.querySelector('#form-food [name="calorie"]');
+  const est = estimateCalorie(text);
+  if (est) {
+    hintEl.textContent = `🔍 ${est.matched.join(' + ')} 자동 계산: 약 ${est.total}kcal (다르면 직접 수정하세요)`;
+    hintEl.style.display = 'block';
+    if (!calorieInput.value) calorieInput.value = est.total;
+  } else {
+    hintEl.style.display = 'none';
+  }
 }
 
 function glucoseStatus(type, value) {
@@ -1090,6 +1165,7 @@ document.getElementById('form-food').addEventListener('submit', function(e) {
   saveData(data); renderAllTabs(); e.target.reset();
   e.target.querySelector('[name="date"]').value = currentGlobalDate;
   clearFoodPhoto();
+  document.getElementById('calorie-hint').style.display = 'none';
 });
 document.getElementById('form-exercise').addEventListener('submit', function(e) {
   e.preventDefault();
