@@ -1059,7 +1059,7 @@ function sumByDate(list, dateField, valueField) {
 }
 function shortDate(d) { return d.slice(5).replace('-','/'); }
 
-function drawBarChart(canvasId, labels, values, color) {
+function drawLineChart(canvasId, labels, values, color) {
   const canvas = document.getElementById(canvasId);
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
@@ -1075,20 +1075,26 @@ function drawBarChart(canvasId, labels, values, color) {
     ctx.beginPath(); ctx.moveTo(marginL, y); ctx.lineTo(W-marginR, y); ctx.stroke();
     ctx.fillText(String(Math.round(maxVal * s/steps)), marginL-4, y+3);
   }
-  const gap = 4;
-  const barW = chartW/labels.length - gap;
+  const stepX = chartW/(labels.length>1 ? labels.length-1 : 1);
+  ctx.strokeStyle = color; ctx.lineWidth = 1.8; ctx.beginPath();
   labels.forEach((lab, idx) => {
     const val = values[idx] || 0;
-    const barH = chartH * (val/maxVal);
-    const x = marginL + idx*(chartW/labels.length) + gap/2;
-    const y = marginT + chartH - barH;
+    const x = marginL + idx*stepX;
+    const y = marginT + chartH - chartH*(val/maxVal);
+    if (idx === 0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+  labels.forEach((lab, idx) => {
+    const val = values[idx] || 0;
+    const x = marginL + idx*stepX;
+    const y = marginT + chartH - chartH*(val/maxVal);
     ctx.fillStyle = color;
-    ctx.fillRect(x, y, barW, barH);
-    ctx.fillStyle = '#666'; ctx.font='8.5px sans-serif'; ctx.textAlign='center';
-    ctx.fillText(shortDate(lab), x+barW/2, H-6);
+    ctx.beginPath(); ctx.arc(x, y, 2.8, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#666'; ctx.font='8px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(shortDate(lab), x, H-6);
     if (val > 0) {
-      ctx.fillStyle = '#333'; ctx.font='9px sans-serif'; ctx.textAlign='center';
-      ctx.fillText(String(val), x+barW/2, y-3);
+      ctx.fillStyle = '#333'; ctx.font='8.5px sans-serif'; ctx.textAlign='center';
+      ctx.fillText(String(val), x, y-6);
     }
   });
 }
@@ -1160,10 +1166,10 @@ function renderCharts() {
   const dates = lastNDates(14);
 
   const calMap = sumByDate(data.food.filter(f=>f.calorie), 'date', 'calorie');
-  drawBarChart('chart-calorie', dates, dates.map(d => Math.round(calMap[d]||0)), '#4CAF50');
+  drawLineChart('chart-calorie', dates, dates.map(d => Math.round(calMap[d]||0)), '#4CAF50');
 
   const exMap = sumByDate(data.exercise, 'date', 'duration');
-  drawBarChart('chart-exercise', dates, dates.map(d => Math.round(exMap[d]||0)), '#4285C7');
+  drawLineChart('chart-exercise', dates, dates.map(d => Math.round(exMap[d]||0)), '#4285C7');
 
   const fastMap = {};
   data.fasting.forEach(i => {
@@ -1171,7 +1177,7 @@ function renderCharts() {
     const hours = (new Date(i.end)-new Date(i.start))/3600000;
     fastMap[d] = (fastMap[d]||0)+hours;
   });
-  drawBarChart('chart-fasting', dates, dates.map(d => Math.round((fastMap[d]||0)*10)/10), '#D69A2D');
+  drawLineChart('chart-fasting', dates, dates.map(d => Math.round((fastMap[d]||0)*10)/10), '#D69A2D');
 
   const glist = [...data.glucose].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).slice(-20);
   drawGlucoseChart('chart-glucose', glist);
