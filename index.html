@@ -272,7 +272,11 @@
               <option>아침</option><option>점심</option><option>저녁</option><option>간식</option>
             </select>
           </div>
-          <div class="form-field grow"><label>메뉴</label><input type="text" name="menu" placeholder="사진만 첨부해도 돼요" oninput="handleMenuInput(this.value)"></div>
+          <div class="form-field grow">
+            <label>메뉴</label>
+            <input type="text" name="menu" list="food-menu-list" placeholder="사진만 첨부해도 돼요" oninput="handleMenuInput(this.value)">
+            <datalist id="food-menu-list"></datalist>
+          </div>
           <div class="form-field">
             <label>예상 칼로리</label>
             <input type="number" name="calorie" min="0" placeholder="kcal (끼니 700↑/간식 300↑ 주의)">
@@ -542,7 +546,7 @@ function loadData() {
   if (raw) {
     try { return JSON.parse(raw); } catch(e) {}
   }
-  return { food: [], exercise: [], fasting: [], glucose: [], condition: [], sleep: [], bp: [] };
+  return { food: [], exercise: [], fasting: [], glucose: [], condition: [], sleep: [], bp: [], customFoodDB: {} };
 }
 function saveData(data) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -551,6 +555,7 @@ let data = loadData();
 if (!data.condition) data.condition = [];
 if (!data.sleep) data.sleep = [];
 if (!data.bp) data.bp = [];
+if (!data.customFoodDB) data.customFoodDB = {};
 
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
@@ -655,30 +660,35 @@ const FOOD_PARTICLES = ['이랑도','이랑','하고','까지','에서','한테'
 
 function estimateCalorie(text) {
   if (!text || !text.trim()) return null;
+  const db = Object.assign({}, FOOD_CALORIE_DB, data.customFoodDB);
+  const trimmed = text.trim();
+  if (Object.prototype.hasOwnProperty.call(db, trimmed)) {
+    return { total: db[trimmed], matched: [trimmed] };
+  }
   const segments = text.split(/[,+\/、·\s]+/).map(s => s.trim()).filter(Boolean);
   const matched = [];
   let total = 0;
   segments.forEach(seg => {
     let bestKey = null;
-    if (Object.prototype.hasOwnProperty.call(FOOD_CALORIE_DB, seg)) {
+    if (Object.prototype.hasOwnProperty.call(db, seg)) {
       bestKey = seg;
     } else {
       for (const p of FOOD_PARTICLES) {
         if (seg.endsWith(p) && seg.length > p.length) {
           const stripped = seg.slice(0, -p.length);
-          if (Object.prototype.hasOwnProperty.call(FOOD_CALORIE_DB, stripped)) { bestKey = stripped; break; }
+          if (Object.prototype.hasOwnProperty.call(db, stripped)) { bestKey = stripped; break; }
         }
       }
     }
     if (!bestKey) {
-      for (const key in FOOD_CALORIE_DB) {
+      for (const key in db) {
         if (seg.includes(key)) {
           if (!bestKey || key.length > bestKey.length) bestKey = key;
         }
       }
     }
     if (!bestKey) {
-      for (const key in FOOD_CALORIE_DB) {
+      for (const key in db) {
         if (key.includes(seg)) {
           if (!bestKey || key.length < bestKey.length) bestKey = key;
         }
@@ -686,11 +696,17 @@ function estimateCalorie(text) {
     }
     if (bestKey && !matched.includes(bestKey)) {
       matched.push(bestKey);
-      total += FOOD_CALORIE_DB[bestKey];
+      total += db[bestKey];
     }
   });
   if (matched.length === 0) return null;
   return { total, matched };
+}
+
+function renderMenuDatalist() {
+  const list = document.getElementById('food-menu-list');
+  if (!list) return;
+  list.innerHTML = Object.keys(data.customFoodDB).map(name => `<option value="${name}">`).join('');
 }
 
 function handleMenuInput(text) {
@@ -877,7 +893,7 @@ function renderAll() {
   });
 }
 function renderAllTabs() {
-  renderFood(); renderExercise(); renderFasting(); renderGlucose(); renderCondition(); renderSleep(); renderBP(); renderAll(); renderCharts(); renderAnalysis();
+  renderFood(); renderExercise(); renderFasting(); renderGlucose(); renderCondition(); renderSleep(); renderBP(); renderAll(); renderCharts(); renderAnalysis(); renderMenuDatalist();
 }
 
 let analysisPeriod = 14;
@@ -1301,7 +1317,11 @@ document.getElementById('form-food').addEventListener('submit', function(e) {
   const f = new FormData(e.target);
   const menu = f.get('menu');
   if (!menu && !pendingFoodPhoto) { alert('메뉴를 적거나 사진을 첨부해주세요.'); return; }
-  data.food.push({ id: uid(), date: f.get('date'), time: f.get('time'), meal: f.get('meal'), menu: menu, calorie: f.get('calorie') ? Number(f.get('calorie')) : null, note: f.get('note'), photo: pendingFoodPhoto });
+  const calorie = f.get('calorie') ? Number(f.get('calorie')) : null;
+  data.food.push({ id: uid(), date: f.get('date'), time: f.get('time'), meal: f.get('meal'), menu: menu, calorie: calorie, note: f.get('note'), photo: pendingFoodPhoto });
+  if (menu && menu.trim() && calorie) {
+    data.customFoodDB[menu.trim()] = calorie;
+  }
   saveData(data); renderAllTabs(); e.target.reset();
   e.target.querySelector('[name="date"]').value = currentGlobalDate;
   clearFoodPhoto();
