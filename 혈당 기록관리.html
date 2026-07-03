@@ -761,6 +761,18 @@ function computeStats(dateSet) {
   return { glist, gAvg, gWarn, gNormalPct, elist, eTotalMin, eDays, flist, fAvg, fOverGoal, foodList, calAvgPerDay, calDays, condList, condBad, slist, sAvg };
 }
 
+function getEarliestDate() {
+  const allDates = [];
+  data.food.forEach(i => allDates.push(i.date));
+  data.exercise.forEach(i => allDates.push(i.date));
+  data.glucose.forEach(i => allDates.push(i.date));
+  data.condition.forEach(i => allDates.push(i.date));
+  data.fasting.forEach(i => allDates.push(i.start.split('T')[0]));
+  data.sleep.forEach(i => allDates.push(i.start.split('T')[0]));
+  if (allDates.length === 0) return null;
+  return allDates.reduce((a,b) => a < b ? a : b);
+}
+
 function computeOverallScore(cur, n) {
   const parts = [];
   if (cur.glist.length > 0) parts.push({ ratio: cur.gNormalPct/100, weight: 0.45 });
@@ -814,12 +826,18 @@ function renderAnalysis() {
   const cur = computeStats(curDates);
   const prev = computeStats(prevDates);
 
-  renderStatusBanner(computeOverallScore(cur, n));
+  const earliest = getEarliestDate();
+  let effN = n;
+  if (earliest && earliest > curDates[0]) {
+    effN = curDates.filter(d => d >= earliest).length;
+  }
+
+  renderStatusBanner(computeOverallScore(cur, effN));
 
   const statsEl = document.getElementById('analysis-stats');
   statsEl.innerHTML = `
     <div class="summary-item"><span class="s-label">🩸 평균 혈당</span><span class="s-value">${cur.gAvg!=null ? Math.round(cur.gAvg)+' mg/dL' : '-'}</span></div>
-    <div class="summary-item"><span class="s-label">🏃 운동한 날</span><span class="s-value">${cur.eDays}/${n}일</span></div>
+    <div class="summary-item"><span class="s-label">🏃 운동한 날</span><span class="s-value">${cur.eDays}/${effN}일</span></div>
     <div class="summary-item"><span class="s-label">⏳ 평균 단식</span><span class="s-value">${cur.fAvg!=null ? cur.fAvg.toFixed(1)+'시간' : '-'}</span></div>
     <div class="summary-item"><span class="s-label">🍽️ 평균 칼로리</span><span class="s-value">${cur.calAvgPerDay!=null ? Math.round(cur.calAvgPerDay)+' kcal' : '-'}</span></div>
     <div class="summary-item"><span class="s-label">😊 컨디션 안좋은 날</span><span class="s-value">${cur.condList.length ? cur.condBad+'/'+cur.condList.length+'일' : '-'}</span></div>
@@ -827,6 +845,10 @@ function renderAnalysis() {
   `;
 
   const insights = [];
+
+  if (effN < n) {
+    insights.push({cls:'', text:`최근 ${n}일 중 실제 기록을 시작한 건 ${effN}일 전부터예요. 그래서 ${effN}일 기준으로 계산했어요.`});
+  }
 
   // 혈당
   if (cur.glist.length === 0) {
@@ -848,9 +870,9 @@ function renderAnalysis() {
   if (cur.elist.length === 0) {
     insights.push({cls:'warn', text:'이 기간 운동 기록이 없어요. 가벼운 걷기부터 시작해보세요.'});
   } else {
-    const avgMin = Math.round(cur.eTotalMin / n);
-    let t = `운동한 날은 ${n}일 중 ${cur.eDays}일이고, 하루 평균 ${avgMin}분이에요.`;
-    const good = cur.eDays / n >= 0.4 && avgMin >= 20;
+    const avgMin = Math.round(cur.eTotalMin / effN);
+    let t = `운동한 날은 ${effN}일 중 ${cur.eDays}일이고, 하루 평균 ${avgMin}분이에요.`;
+    const good = cur.eDays / effN >= 0.4 && avgMin >= 20;
     insights.push({cls: good?'good':'warn', text: t + (good ? ' 꾸준히 잘하고 계세요!' : ' 권장량(주 3~5회, 30분)보다 부족해요.')});
   }
 
