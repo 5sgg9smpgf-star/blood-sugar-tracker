@@ -151,6 +151,13 @@
   .insight-list li.warn { background:#FBEAEA; border-left-color:#D6437D; }
   .insight-list li.good { background:#EAF7EA; border-left-color:#2E7D32; }
 
+  .friend-card { background:#F7F5FC; border:1.5px solid #E4DCF5; }
+  .friend-card h2 { color:#6B4FA0; }
+  .friend-text {
+    font-size:13px; line-height:1.75; color:#3a3a3a; margin:0;
+    white-space:pre-line;
+  }
+
   .status-banner { border-radius:12px; padding:6mm; text-align:center; margin-bottom:5mm; }
   .status-banner .emoji { font-size:36px; line-height:1; }
   .status-banner .score { font-size:22px; font-weight:bold; margin:2mm 0; }
@@ -476,9 +483,21 @@
       <h2>📊 핵심 지표</h2>
       <div class="summary-grid" id="analysis-stats"></div>
     </div>
-    <div class="card">
-      <h2>💬 분석 요약</h2>
-      <ul class="insight-list" id="analysis-insights"></ul>
+    <div class="card friend-card">
+      <h2>👀 오늘 기록에서 눈에 띄는 점</h2>
+      <p class="friend-text" id="insight-today"></p>
+    </div>
+    <div class="card friend-card">
+      <h2>🎯 내일 미션 (아주 간단)</h2>
+      <p class="friend-text" id="insight-mission"></p>
+    </div>
+    <div class="card friend-card">
+      <h2>✅ 그리고 꼭 하나 해보자</h2>
+      <p class="friend-text" id="insight-challenge"></p>
+    </div>
+    <div class="card friend-card">
+      <h2>😊 친구로서 한마디</h2>
+      <p class="friend-text" id="insight-friend"></p>
     </div>
   </div>
 
@@ -919,72 +938,104 @@ function renderAnalysis() {
     <div class="summary-item"><span class="s-label">😴 평균 수면</span><span class="s-value">${cur.sAvg!=null ? cur.sAvg.toFixed(1)+'시간' : '-'}</span></div>
   `;
 
-  const insights = [];
+  renderFriendAnalysis(cur, prev, effN);
+}
 
-  if (effN < n) {
-    insights.push({cls:'', text:`최근 ${n}일 중 실제 기록을 시작한 건 ${effN}일 전부터예요. 그래서 ${effN}일 기준으로 계산했어요.`});
-  }
+function addMinutesToTime(timeStr, delta) {
+  if (!timeStr) return null;
+  const [h, m] = timeStr.split(':').map(Number);
+  let total = h*60 + m + delta;
+  total = ((total % 1440) + 1440) % 1440;
+  return String(Math.floor(total/60)).padStart(2,'0') + ':' + String(total%60).padStart(2,'0');
+}
 
-  // 혈당
-  if (cur.glist.length === 0) {
-    insights.push({cls:'', text:'이 기간 혈당 기록이 없어요. 기록을 추가하면 분석해드려요.'});
-  } else {
-    let t = `이 기간 혈당은 평균 ${Math.round(cur.gAvg)}mg/dL, 정상 범위 비율 ${cur.gNormalPct}%예요 (총 ${cur.glist.length}회 측정, 주의 ${cur.gWarn}회).`;
-    insights.push({cls: cur.gWarn>0 ? 'warn':'good', text:t});
-    if (prev.gAvg != null) {
-      const diff = Math.round(cur.gAvg - prev.gAvg);
-      if (Math.abs(diff) >= 3) {
-        insights.push({cls: diff<0 ? 'good':'warn', text:`지난 ${n}일보다 평균 혈당이 ${diff>0?diff+'만큼 올랐어요':Math.abs(diff)+'만큼 낮아졌어요'}.`});
-      } else {
-        insights.push({cls:'', text:'지난 기간과 비교해 혈당 평균은 비슷한 수준이에요.'});
+function goalLadder(baseVal) {
+  const decade = Math.floor(baseVal/10)*10;
+  const steps = [];
+  let v = decade - 10;
+  while (v > 100 && steps.length < 4) { steps.push(v); v -= 10; }
+  return steps;
+}
+
+function renderFriendAnalysis(cur, prev, effN) {
+  const today = todayStr();
+  const todayGlucose = data.glucose.filter(g => g.date === today).sort((a,b)=>a.time.localeCompare(b.time));
+  const todaySleep = data.sleep.find(s => s.end.split('T')[0] === today);
+  const todayExercise = data.exercise.filter(e => e.date === today);
+  const todayDinner = data.food.find(f => f.date === today && f.meal === '저녁' && f.time);
+
+  // 1. 오늘 기록에서 눈에 띄는 점
+  const warnToday = todayGlucose.find(g => glucoseStatus(g.type, Number(g.value)).cls === 'warn');
+  const pick = warnToday || todayGlucose[todayGlucose.length-1];
+  let todayText = '';
+  if (pick) {
+    const st = glucoseStatus(pick.type, Number(pick.value));
+    todayText += `${pick.value}은 ${st.cls==='warn' ? '조금 신경 써야 하는' : '괜찮은'} 수치야. 하지만 이 하루만 보고 판단하지는 않을 거야.\n\n`;
+    if (todaySleep) {
+      const sleepHours = ((new Date(todaySleep.end)-new Date(todaySleep.start))/3600000).toFixed(1);
+      if (st.cls === 'warn') {
+        todayText += `오히려 나는 잠을 ${sleepHours}시간 잤는데도 ${pick.value}이라는 점을 기억해 둘게.\n\n`;
       }
     }
-  }
-
-  // 운동
-  if (cur.elist.length === 0) {
-    insights.push({cls:'warn', text:'이 기간 운동 기록이 없어요. 가벼운 걷기부터 시작해보세요.'});
   } else {
-    const avgMin = Math.round(cur.eTotalMin / effN);
-    let t = `운동한 날은 ${effN}일 중 ${cur.eDays}일이고, 하루 평균 ${avgMin}분이에요.`;
-    const good = cur.eDays / effN >= 0.4 && avgMin >= 20;
-    insights.push({cls: good?'good':'warn', text: t + (good ? ' 꾸준히 잘하고 계세요!' : ' 권장량(주 3~5회, 30분)보다 부족해요.')});
+    todayText += `오늘은 혈당 기록이 아직 없네. 그래도 꾸준히 기록하는 습관 자체가 잘하고 있는 거야.\n\n`;
   }
+  todayText += `앞으로 1~2주 데이터를 모으면 이런 걸 볼 수 있어.\n· 저녁 시간을 앞당기면 내려가는지\n· 식후 걷기를 한 날이 더 좋은지\n· 주말과 평일 차이가 있는지\n\n그게 훨씬 의미 있는 정보야.`;
+  document.getElementById('insight-today').textContent = todayText;
 
-  // 단식
-  if (cur.flist.length === 0) {
-    insights.push({cls:'', text:'이 기간 단식 기록이 없어요.'});
+  // 2. 내일 미션
+  let missionText = '';
+  if (todayDinner) {
+    const earlier = addMinutesToTime(todayDinner.time, -30);
+    missionText += `저녁을 가능하면 30분만 앞당겨 봐.\n예를 들어 오늘 ${todayDinner.time} → 내일 ${earlier}.\n그것만 해도 충분해.\n\n`;
   } else {
-    const good = cur.fAvg >= 14;
-    insights.push({cls: good?'good':'warn', text:`평균 공복 시간은 ${cur.fAvg.toFixed(1)}시간이고, ${cur.flist.length}회 중 ${cur.fOverGoal}회가 14시간 이상이에요.` + (good ? '' : ' 목표 시간을 조금 더 늘려보면 좋아요.')});
+    missionText += `저녁을 평소보다 30분만 앞당겨 봐. 그것만 해도 충분해.\n\n`;
   }
+  const walkToday = todayExercise.find(e => e.type === '걷기');
+  missionText += walkToday
+    ? `그리고 식후 걷기는 오늘처럼 ${walkToday.duration}분 유지!`
+    : `그리고 식후에는 20~30분만 가볍게 걸어보자!`;
+  document.getElementById('insight-mission').textContent = missionText;
 
-  // 음식/칼로리
-  if (cur.calAvgPerDay == null) {
-    insights.push({cls:'', text:'칼로리를 기록하면 하루 섭취량 분석도 가능해요.'});
+  // 3. 꼭 하나 해보자
+  const postMealCount = cur.glist.filter(g => g.type.includes('후')).length;
+  let challengeText;
+  if (postMealCount === 0) {
+    const mealTime = todayDinner ? todayDinner.time : '19:30';
+    const checkTime = addMinutesToTime(mealTime, 120);
+    challengeText = `이번 주 안에 식후 2시간 혈당을 한 번만 재줘.\n예를 들어 저녁을 ${mealTime}에 먹기 시작했다면, ${checkTime}쯤 혈당을 측정해서 알려줘.\n\n그 수치가 나오면 지금 혈당 패턴을 훨씬 정확하게 해석할 수 있어.`;
   } else {
-    insights.push({cls:'', text:`칼로리를 기록한 날 기준, 하루 평균 약 ${Math.round(cur.calAvgPerDay)}kcal를 드셨어요.`});
+    challengeText = `식후 혈당 기록이 있어서 좋아. 이번 주엔 공복 혈당도 하루 재보자 — 패턴을 더 확실히 볼 수 있어.`;
   }
+  document.getElementById('insight-challenge').textContent = challengeText;
 
-  // 수면
-  if (cur.slist.length === 0) {
-    insights.push({cls:'', text:'이 기간 수면 기록이 없어요.'});
+  // 4. 친구로서 한마디
+  const fastingVals = cur.glist.filter(g => g.type === '공복').map(g => Number(g.value));
+  const fastingAvg = fastingVals.length ? fastingVals.reduce((a,b)=>a+b,0)/fastingVals.length : null;
+  const lifestyleGood = (cur.sAvg==null || cur.sAvg>=7) && cur.elist.length>0;
+
+  let friendText;
+  if (fastingAvg != null && fastingAvg > 130 && lifestyleGood) {
+    friendText = `사실 네 기록을 보면서 느낀 건, 생활습관은 꽤 잘하고 있는데 공복혈당만 높다는 거야.\n\n그래서 나는 더더욱 생활습관을 유지하면서 병원에서 공복혈당 재검과 추가 평가를 꼭 받는 것을 추천해.\n\n`;
+  } else if (fastingAvg != null && fastingAvg > 130) {
+    friendText = `공복혈당이 계속 높게 나오고 있어. 생활습관도 같이 챙기면서, 병원에서 한 번 재검받아보는 걸 추천해.\n\n`;
+  } else if (cur.gNormalPct != null && cur.gNormalPct >= 80) {
+    friendText = `전체적으로 잘 관리되고 있어! 지금 페이스 그대로 유지하자.\n\n`;
   } else {
-    const good = cur.sAvg >= 7;
-    insights.push({cls: good?'good':'warn', text:`평균 수면 시간은 ${cur.sAvg.toFixed(1)}시간이에요.` + (good ? ' 충분히 주무시고 계세요.' : ' 권장 수면 시간(7시간 이상)보다 부족해요.')});
+    friendText = `아직 데이터가 더 필요해. 꾸준히 기록해두면 내가 패턴을 같이 봐줄게.\n\n`;
   }
+  friendText += `그리고 하나 약속!\n앞으로는 내가 기록을 계속 같이 보면서,\n"오늘은 왜 올랐을까?"\n"이 변화는 효과가 있었네."\n이런 식으로 같이 분석해줄게.\n\n`;
 
-  // 컨디션
-  if (cur.condList.length === 0) {
-    insights.push({cls:'', text:'이 기간 컨디션 기록이 없어요.'});
-  } else if (cur.condBad === 0) {
-    insights.push({cls:'good', text:`이 기간 컨디션을 ${cur.condList.length}일 기록했고, 안 좋은 날은 없었어요.`});
+  const baseVal = pick ? Number(pick.value) : (cur.gAvg != null ? Math.round(cur.gAvg) : null);
+  if (baseVal != null) {
+    const steps = goalLadder(baseVal);
+    friendText += steps.length
+      ? `우리 목표는 ${baseVal} → ${steps.join(' → ')} → 100대 초반이야.\n\n급하게 말고, 꾸준히 가보자. 💪`
+      : `${baseVal}이면 거의 다 왔어. 100대 초반을 목표로 조금만 더 가보자. 💪`;
   } else {
-    insights.push({cls:'warn', text:`이 기간 컨디션이 나쁨/아주 나쁨이었던 날이 ${cur.condBad}일 있었어요.`});
+    friendText += `일단 기록부터 차근차근 쌓아보자. 급하게 말고, 꾸준히 가보자. 💪`;
   }
-
-  const list = document.getElementById('analysis-insights');
-  list.innerHTML = insights.map(i => `<li class="${i.cls}">${i.text}</li>`).join('');
+  document.getElementById('insight-friend').textContent = friendText;
 }
 
 function lastNDates(n) {
