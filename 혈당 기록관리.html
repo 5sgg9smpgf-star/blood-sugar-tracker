@@ -39,6 +39,7 @@
   .tab-btn[data-tab="analysis"] { background:#6B4FA0; }
   .tab-btn[data-tab="condition"] { background:#5C6BC0; }
   .tab-btn[data-tab="sleep"]     { background:#455A64; }
+  .tab-btn[data-tab="bp"]        { background:#C0392B; }
 
   .tab-content { display:none; }
   .tab-content.active { display:block; }
@@ -54,6 +55,7 @@
   .card.glucose h2  { color:#B7185E; }
   .card.condition h2 { color:#3F51B5; }
   .card.sleep h2 { color:#37474F; }
+  .card.bp h2 { color:#B0392A; }
 
   .form-row { display:flex; gap: 3mm; flex-wrap: wrap; margin-bottom: 3mm; align-items:flex-end; }
   .form-field { display:flex; flex-direction:column; gap:1mm; font-size:11.5px; }
@@ -73,6 +75,7 @@
   .btn.glucose  { background:#D6437D; }
   .btn.condition { background:#5C6BC0; }
   .btn.sleep { background:#455A64; }
+  .btn.bp { background:#C0392B; }
   .btn.print    { background:#2E86AB; }
   .btn.del      { background:#e74c3c; padding: 1mm 2.5mm; font-size:11px; }
 
@@ -238,6 +241,7 @@
     <button class="tab-btn" data-tab="glucose" onclick="switchTab('glucose')">🩸 혈당</button>
     <button class="tab-btn" data-tab="condition" onclick="switchTab('condition')">😊 컨디션</button>
     <button class="tab-btn" data-tab="sleep" onclick="switchTab('sleep')">😴 수면</button>
+    <button class="tab-btn" data-tab="bp" onclick="switchTab('bp')">🫀 혈압</button>
     <button class="tab-btn" data-tab="chart" onclick="switchTab('chart')">📊 그래프</button>
     <button class="tab-btn" data-tab="analysis" onclick="switchTab('analysis')">🔍 분석 요약</button>
   </div>
@@ -430,6 +434,29 @@
     </div>
   </div>
 
+  <!-- 혈압 -->
+  <div class="tab-content" id="tab-bp">
+    <div class="card bp">
+      <h2>🫀 혈압 기록 추가</h2>
+      <form id="form-bp">
+        <div class="form-row">
+          <input type="hidden" name="date">
+          <div class="form-field"><label>시간</label><input type="time" name="time" required></div>
+          <div class="form-field"><label>수축기(최고)</label><input type="number" name="systolic" min="1" placeholder="mmHg" required></div>
+          <div class="form-field"><label>이완기(최저)</label><input type="number" name="diastolic" min="1" placeholder="mmHg" required></div>
+          <div class="form-field"><label>맥박</label><input type="number" name="pulse" min="1" placeholder="선택"></div>
+          <div class="form-field grow"><label>메모</label><input type="text" name="note" placeholder="선택 입력"></div>
+          <button type="submit" class="btn bp">추가</button>
+        </div>
+      </form>
+      <table id="table-bp">
+        <thead><tr><th>날짜</th><th>시간</th><th>혈압</th><th>맥박</th><th>상태</th><th>메모</th><th>삭제</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="empty-msg" id="empty-bp" style="display:none;">혈압 기록이 없어요.</div>
+    </div>
+  </div>
+
   <!-- 그래프 -->
   <div class="tab-content" id="tab-chart">
     <div class="card">
@@ -515,7 +542,7 @@ function loadData() {
   if (raw) {
     try { return JSON.parse(raw); } catch(e) {}
   }
-  return { food: [], exercise: [], fasting: [], glucose: [], condition: [], sleep: [] };
+  return { food: [], exercise: [], fasting: [], glucose: [], condition: [], sleep: [], bp: [] };
 }
 function saveData(data) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -523,6 +550,7 @@ function saveData(data) {
 let data = loadData();
 if (!data.condition) data.condition = [];
 if (!data.sleep) data.sleep = [];
+if (!data.bp) data.bp = [];
 
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
@@ -687,6 +715,27 @@ function glucoseStatus(type, value) {
   return {cls:'normal', text:'-'};
 }
 
+function bpStatus(sys, dia) {
+  if (sys >= 140 || dia >= 90) return {cls:'warn', text:'높음'};
+  if (sys < 90 || dia < 60) return {cls:'warn', text:'낮음'};
+  return {cls:'normal', text:'정상'};
+}
+function renderBP() {
+  const tbody = document.querySelector('#table-bp tbody');
+  tbody.innerHTML = '';
+  const list = [...data.bp].sort((a,b) => (b.date+b.time).localeCompare(a.date+a.time));
+  document.getElementById('empty-bp').style.display = list.length ? 'none' : 'block';
+  list.forEach(item => {
+    const st = bpStatus(Number(item.systolic), Number(item.diastolic));
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${item.date}</td><td>${item.time}</td><td>${item.systolic}/${item.diastolic}</td>
+      <td>${item.pulse||'-'}</td><td><span class="badge ${st.cls}">${st.text}</span></td>
+      <td class="left">${item.note||''}</td>
+      <td class="del-cell"><button class="btn del" onclick="deleteItem('bp','${item.id}')">삭제</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
 function conditionBadge(mood) {
   const map = {
     '아주 좋음': {cls:'good', emoji:'😄'},
@@ -816,6 +865,7 @@ function renderAll() {
     const d = i.start.split('T')[0], t = i.start.split('T')[1];
     rows.push({date:d, time:t, icon:'😴', label:'수면', content:`${i.start.replace('T',' ')} ~ ${i.end.replace('T',' ')} (${fmtDur(hours)}, ${i.quality||''})`, note:i.note||''});
   });
+  data.bp.forEach(i => rows.push({date:i.date, time:i.time, icon:'🫀', label:'혈압', content:`${i.systolic}/${i.diastolic} mmHg${i.pulse ? ' · 맥박 '+i.pulse : ''}`, note:i.note||''}));
 
   rows.sort((a,b) => (b.date+b.time).localeCompare(a.date+a.time));
   document.getElementById('empty-all').style.display = rows.length ? 'none' : 'block';
@@ -827,7 +877,7 @@ function renderAll() {
   });
 }
 function renderAllTabs() {
-  renderFood(); renderExercise(); renderFasting(); renderGlucose(); renderCondition(); renderSleep(); renderAll(); renderCharts(); renderAnalysis();
+  renderFood(); renderExercise(); renderFasting(); renderGlucose(); renderCondition(); renderSleep(); renderBP(); renderAll(); renderCharts(); renderAnalysis();
 }
 
 let analysisPeriod = 14;
@@ -877,7 +927,12 @@ function computeStats(dateSet) {
   const sHours = slist.map(s => (new Date(s.end)-new Date(s.start))/3600000);
   const sAvg = sHours.length ? sHours.reduce((s,h)=>s+h,0)/sHours.length : null;
 
-  return { glist, gAvg, gWarn, gNormalPct, elist, eTotalMin, eDays, flist, fAvg, fOverGoal, foodList, calAvgPerDay, calDays, condList, condBad, slist, sAvg };
+  const bpList = data.bp.filter(b => inSet(b.date));
+  const bpWarn = bpList.filter(b => bpStatus(Number(b.systolic), Number(b.diastolic)).cls === 'warn').length;
+  const bpSysAvg = bpList.length ? bpList.reduce((s,b)=>s+Number(b.systolic),0)/bpList.length : null;
+  const bpDiaAvg = bpList.length ? bpList.reduce((s,b)=>s+Number(b.diastolic),0)/bpList.length : null;
+
+  return { glist, gAvg, gWarn, gNormalPct, elist, eTotalMin, eDays, flist, fAvg, fOverGoal, foodList, calAvgPerDay, calDays, condList, condBad, slist, sAvg, bpList, bpWarn, bpSysAvg, bpDiaAvg };
 }
 
 function getEarliestDate() {
@@ -888,6 +943,7 @@ function getEarliestDate() {
   data.condition.forEach(i => allDates.push(i.date));
   data.fasting.forEach(i => allDates.push(i.start.split('T')[0]));
   data.sleep.forEach(i => allDates.push(i.start.split('T')[0]));
+  data.bp.forEach(i => allDates.push(i.date));
   if (allDates.length === 0) return null;
   return allDates.reduce((a,b) => a < b ? a : b);
 }
@@ -902,6 +958,7 @@ function computeOverallScore(cur, n) {
   if (cur.flist.length > 0) parts.push({ ratio: Math.min(1, cur.fAvg/16), weight: 0.15 });
   if (cur.condList.length > 0) parts.push({ ratio: (cur.condList.length-cur.condBad)/cur.condList.length, weight: 0.15 });
   if (cur.slist.length > 0) parts.push({ ratio: Math.min(1, cur.sAvg/7), weight: 0.2 });
+  if (cur.bpList.length > 0) parts.push({ ratio: (cur.bpList.length-cur.bpWarn)/cur.bpList.length, weight: 0.15 });
 
   if (parts.length === 0) return null;
   const totalWeight = parts.reduce((s,p)=>s+p.weight, 0);
@@ -961,6 +1018,7 @@ function renderAnalysis() {
     <div class="summary-item"><span class="s-label">🍽️ 평균 칼로리</span><span class="s-value">${cur.calAvgPerDay!=null ? Math.round(cur.calAvgPerDay)+' kcal' : '-'}</span></div>
     <div class="summary-item"><span class="s-label">😊 컨디션 안좋은 날</span><span class="s-value">${cur.condList.length ? cur.condBad+'/'+cur.condList.length+'일' : '-'}</span></div>
     <div class="summary-item"><span class="s-label">😴 평균 수면</span><span class="s-value">${cur.sAvg!=null ? cur.sAvg.toFixed(1)+'시간' : '-'}</span></div>
+    <div class="summary-item"><span class="s-label">🫀 평균 혈압</span><span class="s-value">${cur.bpSysAvg!=null ? Math.round(cur.bpSysAvg)+'/'+Math.round(cur.bpDiaAvg) : '-'}</span></div>
   `;
 
   renderFriendAnalysis(cur, prev, effN);
@@ -1287,10 +1345,17 @@ document.getElementById('form-condition').addEventListener('submit', function(e)
   saveData(data); renderAllTabs(); e.target.reset();
   e.target.querySelector('[name="date"]').value = currentGlobalDate;
 });
+document.getElementById('form-bp').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  data.bp.push({ id: uid(), date: f.get('date'), time: f.get('time'), systolic: f.get('systolic'), diastolic: f.get('diastolic'), pulse: f.get('pulse'), note: f.get('note') });
+  saveData(data); renderAllTabs(); e.target.reset();
+  e.target.querySelector('[name="date"]').value = currentGlobalDate;
+});
 
 // 기본값: 오늘 날짜 / 현재 시간
 setGlobalDate(todayStr());
-['form-food','form-exercise','form-glucose','form-condition'].forEach(id => {
+['form-food','form-exercise','form-glucose','form-condition','form-bp'].forEach(id => {
   const form = document.getElementById(id);
   if (form.querySelector('[name="time"]')) form.querySelector('[name="time"]').value = nowTimeStr();
 });
