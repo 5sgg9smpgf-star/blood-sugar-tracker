@@ -605,29 +605,36 @@ const FOOD_CALORIE_DB = {
   '과자':150,'초콜릿':250,'견과류':200,'프로틴바':200,'그릭요거트':150
 };
 
+const FOOD_PARTICLES = ['이랑도','이랑','하고','까지','에서','한테','으로','이나','랑도','도','는','은','이','가','을','를','로','와','과','랑'];
+
 function estimateCalorie(text) {
   if (!text || !text.trim()) return null;
-  const segments = text.split(/[,+\/、·]/).map(s => s.trim()).filter(Boolean);
-  const searchIn = segments.length ? segments : [text.trim()];
+  const segments = text.split(/[,+\/、·\s]+/).map(s => s.trim()).filter(Boolean);
   const matched = [];
   let total = 0;
-  searchIn.forEach(seg => {
-    const segNorm = seg.replace(/\s+/g,'');
-    if (!segNorm) return;
+  segments.forEach(seg => {
     let bestKey = null;
-    if (Object.prototype.hasOwnProperty.call(FOOD_CALORIE_DB, segNorm)) {
-      bestKey = segNorm;
+    if (Object.prototype.hasOwnProperty.call(FOOD_CALORIE_DB, seg)) {
+      bestKey = seg;
     } else {
+      for (const p of FOOD_PARTICLES) {
+        if (seg.endsWith(p) && seg.length > p.length) {
+          const stripped = seg.slice(0, -p.length);
+          if (Object.prototype.hasOwnProperty.call(FOOD_CALORIE_DB, stripped)) { bestKey = stripped; break; }
+        }
+      }
+    }
+    if (!bestKey) {
       for (const key in FOOD_CALORIE_DB) {
-        if (segNorm.includes(key)) {
+        if (seg.includes(key)) {
           if (!bestKey || key.length > bestKey.length) bestKey = key;
         }
       }
-      if (!bestKey) {
-        for (const key in FOOD_CALORIE_DB) {
-          if (key.includes(segNorm)) {
-            if (!bestKey || key.length < bestKey.length) bestKey = key;
-          }
+    }
+    if (!bestKey) {
+      for (const key in FOOD_CALORIE_DB) {
+        if (key.includes(seg)) {
+          if (!bestKey || key.length < bestKey.length) bestKey = key;
         }
       }
     }
