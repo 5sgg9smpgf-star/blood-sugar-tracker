@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>혈당 기록 관리</title>
+<style>
+  @page { size: A4; margin: 10mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", sans-serif;
+    margin: 0; padding: 0; color: #2b2b2b; background: #f0f2f5;
+  }
+  .wrap { max-width: 210mm; margin: 0 auto; padding: 8mm; }
+
+  h1.title {
+    text-align: center; font-size: 24px; color: #fff;
+    background: linear-gradient(135deg, #2E86AB, #1B5E7A);
+    padding: 12px; border-radius: 10px; margin: 0 0 5mm 0; letter-spacing: 2px;
+  }
+  h1.title small { display:block; font-size:12px; font-weight:normal; margin-top:4px; opacity:0.9; }
+
+  /* 탭 */
+  .tabs {
+    display:flex; gap: 2mm; margin-bottom: 5mm; flex-wrap: wrap;
+  }
+  .tab-btn {
+    flex:1; min-width: 60px; padding: 3mm 2mm; border:none; border-radius: 8px;
+    font-size: 13px; font-weight:bold; cursor:pointer; color:#fff; opacity:0.55;
+    transition: opacity .15s;
+  }
+  .tab-btn.active { opacity:1; }
+  .tab-btn[data-tab="all"]      { background:#555; }
+  .tab-btn[data-tab="food"]     { background:#4CAF50; }
+  .tab-btn[data-tab="exercise"] { background:#4285C7; }
+  .tab-btn[data-tab="fasting"]  { background:#D69A2D; }
+  .tab-btn[data-tab="glucose"]  { background:#D6437D; }
+  .tab-btn[data-tab="chart"]    { background:#16A085; }
+  .tab-btn[data-tab="analysis"] { background:#6B4FA0; }
+  .tab-btn[data-tab="condition"] { background:#5C6BC0; }
+  .tab-btn[data-tab="sleep"]     { background:#455A64; }
+
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
+
+  .card {
+    background:white; border-radius: 10px; padding: 4mm 5mm; margin-bottom: 5mm;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .card h2 { font-size: 15px; margin:0 0 3mm 0; }
+  .card.food h2     { color:#2E7D32; }
+  .card.exercise h2 { color:#1B5E9C; }
+  .card.fasting h2  { color:#B8860B; }
+  .card.glucose h2  { color:#B7185E; }
+  .card.condition h2 { color:#3F51B5; }
+  .card.sleep h2 { color:#37474F; }
+
+  .form-row { display:flex; gap: 3mm; flex-wrap: wrap; margin-bottom: 3mm; align-items:flex-end; }
+  .form-field { display:flex; flex-direction:column; gap:1mm; font-size:11.5px; }
+  .form-field label { font-weight:bold; color:#555; }
+  .form-field input, .form-field select {
+    padding: 2mm; border:1px solid #ccc; border-radius:6px; font-size:12px; font-family:inherit;
+  }
+  .form-field.grow { flex:1; min-width: 120px; }
+
+  .btn {
+    padding: 2.2mm 5mm; border:none; border-radius: 6px; font-size:12.5px; font-weight:bold;
+    cursor:pointer; color:white;
+  }
+  .btn.food     { background:#4CAF50; }
+  .btn.exercise { background:#4285C7; }
+  .btn.fasting  { background:#D69A2D; }
+  .btn.glucose  { background:#D6437D; }
+  .btn.condition { background:#5C6BC0; }
+  .btn.sleep { background:#455A64; }
+  .btn.print    { background:#2E86AB; }
+  .btn.del      { background:#e74c3c; padding: 1mm 2.5mm; font-size:11px; }
+
+  table { width:100%; border-collapse: collapse; font-size: 11px; margin-top: 2mm; }
+  th, td { border:1px solid #ddd; padding: 1.8mm 1.5mm; text-align:center; }
+  th { background:#f4f4f4; }
+  td.left { text-align:left; }
+  .empty-msg { text-align:center; color:#999; font-size:11.5px; padding: 4mm; }
+
+  .badge { font-size:10px; padding: 0.8mm 2mm; border-radius: 10px; }
+  .badge.normal { background:#EAF7EA; color:#2E7D32; }
+  .badge.warn   { background:#FBEAEA; color:#B71C1C; }
+  .badge.neutral { background:#EEE; color:#666; }
+
+  .type-icon { font-size: 13px; margin-right: 2px; }
+
+  .top-actions { display:flex; justify-content:flex-end; gap:2mm; margin-bottom:4mm; }
+
+  .footer-note { text-align:center; font-size:10px; color:#888; margin: 5mm 0; }
+
+  .photo-field { display:flex; flex-direction:column; gap:1mm; font-size:11.5px; }
+  .photo-field label { font-weight:bold; color:#555; }
+  .photo-preview-wrap { display:flex; align-items:center; gap:2mm; }
+  .photo-preview-wrap img {
+    width:42px; height:42px; object-fit:cover; border-radius:6px; border:1px solid #ccc;
+  }
+  .photo-clear {
+    background:#eee; border:none; border-radius:5px; font-size:10.5px; padding:1mm 2mm; cursor:pointer;
+  }
+  .thumb {
+    width:32px; height:32px; object-fit:cover; border-radius:5px; cursor:pointer; border:1px solid #ccc;
+  }
+  .lightbox {
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75);
+    align-items:center; justify-content:center; z-index:999; cursor:zoom-out;
+  }
+  .lightbox.open { display:flex; }
+  .lightbox img { max-width:90%; max-height:90%; border-radius:8px; }
+
+  .summary-grid { display:grid; grid-template-columns: repeat(4,1fr); gap:3mm; }
+  .summary-item { background:#f7f7f7; border-radius:8px; padding:3mm; text-align:center; }
+  .s-label { display:block; font-size:10.5px; color:#666; margin-bottom:1mm; }
+  .s-value { font-size:14px; font-weight:bold; color:#1B5E7A; }
+  #tab-chart canvas { width:100%; height:auto; display:block; }
+  #tab-chart .card h2 { color:#128572; }
+
+  #tab-analysis .card h2 { color:#5B3E92; }
+  .period-btns { display:flex; gap:2mm; }
+  #analysis-stats { grid-template-columns: repeat(auto-fit, minmax(100px,1fr)); }
+  .period-btn {
+    padding: 2mm 5mm; border:1.5px solid #6B4FA0; border-radius: 20px;
+    background:white; color:#6B4FA0; font-size:12px; font-weight:bold; cursor:pointer;
+  }
+  .period-btn.active { background:#6B4FA0; color:white; }
+  .insight-list { list-style:none; padding:0; margin:0; }
+  .insight-list li {
+    background:#F5F1FA; border-left:3px solid #6B4FA0; border-radius:6px;
+    padding: 2.5mm 3mm; margin-bottom: 2mm; font-size:12px; line-height:1.5;
+  }
+  .insight-list li.warn { background:#FBEAEA; border-left-color:#D6437D; }
+  .insight-list li.good { background:#EAF7EA; border-left-color:#2E7D32; }
+
+  .status-banner { border-radius:12px; padding:6mm; text-align:center; margin-bottom:5mm; }
+  .status-banner .emoji { font-size:36px; line-height:1; }
+  .status-banner .score { font-size:22px; font-weight:bold; margin:2mm 0; }
+  .status-banner .desc { font-size:12.5px; }
+  .status-banner.good    { background:linear-gradient(135deg,#DFF5E1,#C8ECC9); color:#1B5E20; }
+  .status-banner.warn    { background:linear-gradient(135deg,#FFF3D6,#FFE7B3); color:#8A5A00; }
+  .status-banner.bad     { background:linear-gradient(135deg,#FBE0E0,#F8C9C9); color:#8A1212; }
+  .status-banner.neutral { background:#eee; color:#666; }
+
+  @media print {
+    body { background:white; }
+    .tabs, .card form, .top-actions, .del-cell, .period-btns { display:none !important; }
+    .tab-content { display:block !important; }
+    .card { box-shadow:none; border:1px solid #ccc; page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="title">🩺 혈당 기록 관리
+    <small>먹은 음식 · 운동 · 단식 시간 · 혈당 수치를 한곳에서 기록하세요</small>
+  </h1>
+
+  <div class="top-actions">
+    <button class="btn print" onclick="window.print()">🖨️ 인쇄 / 저장</button>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="all" onclick="switchTab('all')">전체 기록</button>
+    <button class="tab-btn" data-tab="food" onclick="switchTab('food')">🍽️ 음식</button>
+    <button class="tab-btn" data-tab="exercise" onclick="switchTab('exercise')">🏃 운동</button>
+    <button class="tab-btn" data-tab="fasting" onclick="switchTab('fasting')">⏳ 단식</button>
+    <button class="tab-btn" data-tab="glucose" onclick="switchTab('glucose')">🩸 혈당</button>
+    <button class="tab-btn" data-tab="condition" onclick="switchTab('condition')">😊 컨디션</button>
+    <button class="tab-btn" data-tab="sleep" onclick="switchTab('sleep')">😴 수면</button>
+    <button class="tab-btn" data-tab="chart" onclick="switchTab('chart')">📊 그래프</button>
+    <button class="tab-btn" data-tab="analysis" onclick="switchTab('analysis')">🔍 분석 요약</button>
+  </div>
+
+  <!-- 전체 기록 -->
+  <div class="tab-content active" id="tab-all">
+    <div class="card">
+      <h2>📋 전체 기록 (최신순)</h2>
+      <table id="table-all">
+        <thead><tr><th>날짜</th><th>시간</th><th>구분</th><th style="width:45%;">내용</th><th>비고</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="empty-msg" id="empty-all" style="display:none;">아직 기록이 없어요. 위 탭에서 하나씩 추가해보세요.</div>
+    </div>
+  </div>
+
+  <!-- 음식 -->
+  <div class="tab-content" id="tab-food">
+    <div class="card food">
+      <h2>🍽️ 음식 기록 추가</h2>
+      <form id="form-food">
+        <div class="form-row">
+          <div class="form-field"><label>날짜</label><input type="date" name="date" required></div>
+          <div class="form-field"><label>시간</label><input type="time" name="time" required></div>
+          <div class="form-field">
+            <label>끼니</label>
+            <select name="meal">
+              <option>아침</option><option>점심</option><option>저녁</option><option>간식</option>
+            </select>
+          </div>
+          <div class="form-field grow"><label>메뉴</label><input type="text" name="menu" placeholder="사진만 첨부해도 돼요"></div>
+          <div class="form-field"><label>예상 칼로리</label><input type="number" name="calorie" min="0" placeholder="kcal (끼니 700↑/간식 300↑ 주의)"></div>
+          <div class="form-field grow"><label>메모</label><input type="text" name="note" placeholder="선택 입력"></div>
+        </div>
+        <div class="form-row">
+          <div class="photo-field">
+            <label>사진 (선택)</label>
+            <input type="file" accept="image/*" capture="environment" id="food-photo-input" onchange="handleFoodPhoto(event)">
+          </div>
+          <div class="photo-preview-wrap" id="food-photo-preview" style="display:none;">
+            <img id="food-photo-img" src="">
+            <button type="button" class="photo-clear" onclick="clearFoodPhoto()">사진 지우기</button>
+          </div>
+          <button type="submit" class="btn food">추가</button>
+        </div>
+      </form>
+      <table id="table-food">
+        <thead><tr><th>날짜</th><th>시간</th><th>끼니</th><th style="width:26%;">메뉴</th><th>칼로리</th><th>사진</th><th>메모</th><th>삭제</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="empty-msg" id="empty-food" style="display:none;">음식 기록이 없어요.</div>
+    </div>
+  </div>
+
+  <!-- 운동 -->
+  <div class="tab-content" id="tab-exercise">
+    <div class="card exercise">
+      <h2>🏃 운동 기록 추가</h2>
+      <form id="form-exercise">
+        <div class="form-row">
+          <div class="form-field"><label>날짜</label><input type="date" name="date" required></div>
+          <div class="form-field"><label>시간</label><input type="time" name="time" required></div>
+          <div class="form-field">
+            <label>운동 종류</label>
+            <select name="type">
+              <option>걷기</option><option>달리기</option><option>자전거</option>
+            </select>
+          </div>
+          <div class="form-field"><label>시간(분)</label><input type="number" name="duration" min="1" placeholder="분" required></div>
+          <div class="form-field grow"><label>메모</label><input type="text" name="note" placeholder="선택 입력"></div>
+          <button type="submit" class="btn exercise">추가</button>
+        </div>
+      </form>
+      <table id="table-exercise">
+        <thead><tr><th>날짜</th><th>시간</th><th>운동</th><th>시간(분)</th><th>메모</th><th>삭제</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="empty-msg" id="empty-exercise" style="display:none;">운동 기록이 없어요.</div>
+    </div>
+  </div>
+
+  <!-- 단식 -->
+  <div class="tab-content" id="tab-fasting">
+    <div class="card fasting">
+      <h2>⏳ 단식 기록 추가</h2>
+      <form id="form-fasting">
+        <div class="form-row">
+          <div class="form-field"><label>공복 시작</label><input type="datetime-local" name="start" required></div>
+          <div class="form-field"><label>공복 종료</label><input type="datetime-local" name="end" required></div>
+          <div class="form-field grow"><label>메모</label><input type="text" name="note" placeholder="선택 입력"></div>
+          <button type="submit" class="btn fasting">추가</button>
+        </div>
+      </form>
+      <table id="table-fasting">
+        <thead><tr><th>시작</th><th>종료</th><th>공복 시간</th><th>메모</th><th>삭제</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="empty-msg" id="empty-fasting" style="display:none;">단식 기록이 없어요.</div>
+    </div>
+  </div>
+
+  <!-- 혈당 -->
+  <div class="tab-content" id="tab-glucose">
+    <div class="card glucose">
+      <h2>🩸 혈당 기록 추가</h2>
+      <form id="form-glucose">
+        <div class="form-row">
+          <div class="form-field"><label>날짜</label><input type="date" name="date" required></div>
+          <div class="form-field"><label>시간</label><input type="time" name="time" required></div>
+          <div class="form-field">
+            <label>측정 시점</label>
+            <select name="type">
+              <option>공복</option>
+              <option>아침 후 2시간</option>
+              <option>점심 후 2시간</option>
+              <option>저녁 후 2시간</option>
+              <option>취침 전</option>
+              <option>기타</option>
+            </select>
+          </div>
+          <div class="form-field"><label>수치(mg/dL)</label><input type="number" name="value" min="1" required></div>
+          <div class="form-field grow"><label>메모</label><input type="text" name="note" placeholder="선택 입력"></div>
+          <button type="submit" class="btn glucose">추가</button>
+        </div>
+      </form>
+      <table id="table-glucose">
+        <thead><tr><th>날짜</th><th>시간</th><th>측정 시점</th><th>수치</th><th>상태</th><th>메모</th><th>삭제</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="empty-msg" id="empty-glucose" style="display:none;">혈당 기록이 없어요.</div>
+    </div>
+  </div>
+
+  <!-- 컨디션 -->
+  <div class="tab-content" id="tab-condition">
+    <div class="card condition">
+      <h2>😊 오늘의 컨디션 기록</h2>
+      <form id="form-condition">
+        <div class="form-row">
+          <div class="form-field"><label>날짜</label><input type="date" name="date" required></div>
+          <div class="form-field">
+            <label>컨디션</label>
+            <select name="mood">
+              <option value="아주 좋음">😄 아주 좋음</option>
+              <option value="좋음" selected>🙂 좋음</option>
+              <option value="보통">😐 보통</option>
+              <option value="나쁨">🙁 나쁨</option>
+              <option value="아주 나쁨">😣 아주 나쁨</option>
+            </select>
+          </div>
+          <div class="form-field grow"><label>메모</label><input type="text" name="note" placeholder="예: 어지러움, 피곤함 등"></div>
+          <button type="submit" class="btn condition">추가</button>
+        </div>
+      </form>
+      <table id="table-condition">
+        <thead><tr><th>날짜</th><th>컨디션</th><th style="width:45%;">메모</th><th>삭제</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="empty-msg" id="empty-condition" style="display:none;">컨디션 기록이 없어요.</div>
+    </div>
+  </div>
+
+  <!-- 수면 -->
+  <div class="tab-content" id="tab-sleep">
+    <div class="card sleep">
+      <h2>😴 수면 기록 추가</h2>
+      <form id="form-sleep">
+        <div class="form-row">
+          <div class="form-field"><label>취침 시간</label><input type="datetime-local" name="start" required></div>
+          <div class="form-field"><label>기상 시간</label><input type="datetime-local" name="end" required></div>
+          <div class="form-field">
+            <label>수면의 질</label>
+            <select name="quality">
+              <option>좋음</option><option>보통</option><option>나쁨</option>
+            </select>
+          </div>
+          <div class="form-field grow"><label>메모</label><input type="text" name="note" placeholder="선택 입력"></div>
+          <button type="submit" class="btn sleep">추가</button>
+        </div>
+      </form>
+      <table id="table-sleep">
+        <thead><tr><th>취침</th><th>기상</th><th>수면 시간</th><th>수면의 질</th><th>메모</th><th>삭제</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="empty-msg" id="empty-sleep" style="display:none;">수면 기록이 없어요.</div>
+    </div>
+  </div>
+
+  <!-- 그래프 -->
+  <div class="tab-content" id="tab-chart">
+    <div class="card">
+      <h2>📊 오늘 요약</h2>
+      <div class="summary-grid">
+        <div class="summary-item"><span class="s-label">🍽️ 오늘 칼로리</span><span class="s-value" id="sum-calorie">-</span></div>
+        <div class="summary-item"><span class="s-label">🏃 오늘 운동</span><span class="s-value" id="sum-exercise">-</span></div>
+        <div class="summary-item"><span class="s-label">⏳ 최근 단식</span><span class="s-value" id="sum-fasting">-</span></div>
+        <div class="summary-item"><span class="s-label">🩸 최근 혈당</span><span class="s-value" id="sum-glucose">-</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>🍽️ 예상 칼로리 (최근 14일)</h2>
+      <canvas id="chart-calorie" width="700" height="170"></canvas>
+    </div>
+    <div class="card">
+      <h2>🏃 운동량 - 분 (최근 14일)</h2>
+      <canvas id="chart-exercise" width="700" height="170"></canvas>
+    </div>
+    <div class="card">
+      <h2>⏳ 단식 시간 (최근 14일)</h2>
+      <canvas id="chart-fasting" width="700" height="170"></canvas>
+    </div>
+    <div class="card">
+      <h2>🩸 혈당 추이 (최근 20건)</h2>
+      <canvas id="chart-glucose" width="700" height="190"></canvas>
+    </div>
+  </div>
+
+  <!-- 분석 요약 -->
+  <div class="tab-content" id="tab-analysis">
+    <div class="status-banner neutral" id="status-banner">
+      <div class="emoji" id="status-emoji">📋</div>
+      <div class="score" id="status-score">-</div>
+      <div class="desc" id="status-desc">기록을 쌓으면 관리 상태를 한눈에 보여드려요.</div>
+    </div>
+    <div class="card">
+      <h2>🔍 분석 기간</h2>
+      <div class="period-btns">
+        <button class="period-btn" data-period="7" onclick="setAnalysisPeriod(7)">최근 7일</button>
+        <button class="period-btn active" data-period="14" onclick="setAnalysisPeriod(14)">최근 14일</button>
+        <button class="period-btn" data-period="30" onclick="setAnalysisPeriod(30)">최근 30일</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>📊 핵심 지표</h2>
+      <div class="summary-grid" id="analysis-stats"></div>
+    </div>
+    <div class="card">
+      <h2>💬 분석 요약</h2>
+      <ul class="insight-list" id="analysis-insights"></ul>
+    </div>
+  </div>
+
+  <div class="footer-note">기록은 이 브라우저에 자동 저장돼요 (localStorage). 다른 브라우저·기기에서는 보이지 않으니 주의하세요.</div>
+</div>
+
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <img id="lightbox-img" src="">
+</div>
+
+<script>
+const STORAGE_KEY = "혈당기록_데이터";
+
+function loadData() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw) {
+    try { return JSON.parse(raw); } catch(e) {}
+  }
+  return { food: [], exercise: [], fasting: [], glucose: [], condition: [], sleep: [] };
+}
+function saveData(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+let data = loadData();
+if (!data.condition) data.condition = [];
+if (!data.sleep) data.sleep = [];
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+}
+
+function uid() { return Date.now() + '-' + Math.random().toString(36).slice(2,7); }
+
+let pendingFoodPhoto = null;
+
+function handleFoodPhoto(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const maxW = 480;
+      const scale = Math.min(1, maxW / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      pendingFoodPhoto = canvas.toDataURL('image/jpeg', 0.7);
+      document.getElementById('food-photo-img').src = pendingFoodPhoto;
+      document.getElementById('food-photo-preview').style.display = 'flex';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function clearFoodPhoto() {
+  pendingFoodPhoto = null;
+  document.getElementById('food-photo-input').value = '';
+  document.getElementById('food-photo-preview').style.display = 'none';
+}
+function openLightbox(src) {
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+function photoLookup(type, id) {
+  const item = data[type].find(i => i.id === id);
+  return item ? item.photo : null;
+}
+
+function fmtDur(hours) {
+  return hours.toFixed(1) + '시간';
+}
+
+const CALORIE_LIMIT = { '아침':700, '점심':700, '저녁':700, '간식':300 };
+function calorieStatus(meal, calorie) {
+  const limit = CALORIE_LIMIT[meal] || 700;
+  return calorie > limit ? {cls:'warn', text:'높음'} : {cls:'normal', text:'정상'};
+}
+
+function glucoseStatus(type, value) {
+  if (type === '공복') {
+    return value <= 130 ? {cls:'normal', text:'정상'} : {cls:'warn', text:'주의'};
+  } else if (type.includes('후')) {
+    return value < 180 ? {cls:'normal', text:'정상'} : {cls:'warn', text:'주의'};
+  }
+  return {cls:'normal', text:'-'};
+}
+
+function conditionBadge(mood) {
+  const map = {
+    '아주 좋음': {cls:'good', emoji:'😄'},
+    '좋음': {cls:'good', emoji:'🙂'},
+    '보통': {cls:'neutral', emoji:'😐'},
+    '나쁨': {cls:'warn', emoji:'🙁'},
+    '아주 나쁨': {cls:'warn', emoji:'😣'}
+  };
+  return map[mood] || {cls:'neutral', emoji:'😐'};
+}
+function renderCondition() {
+  const tbody = document.querySelector('#table-condition tbody');
+  tbody.innerHTML = '';
+  const list = [...data.condition].sort((a,b) => b.date.localeCompare(a.date));
+  document.getElementById('empty-condition').style.display = list.length ? 'none' : 'block';
+  list.forEach(item => {
+    const b = conditionBadge(item.mood);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${item.date}</td><td><span class="badge ${b.cls}">${b.emoji} ${item.mood}</span></td>
+      <td class="left">${item.note||''}</td>
+      <td class="del-cell"><button class="btn del" onclick="deleteItem('condition','${item.id}')">삭제</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+function renderSleep() {
+  const tbody = document.querySelector('#table-sleep tbody');
+  tbody.innerHTML = '';
+  const list = [...data.sleep].sort((a,b) => b.start.localeCompare(a.start));
+  document.getElementById('empty-sleep').style.display = list.length ? 'none' : 'block';
+  list.forEach(item => {
+    const hours = (new Date(item.end) - new Date(item.start)) / 3600000;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${item.start.replace('T',' ')}</td><td>${item.end.replace('T',' ')}</td>
+      <td>${fmtDur(hours)}</td><td>${item.quality||''}</td><td class="left">${item.note||''}</td>
+      <td class="del-cell"><button class="btn del" onclick="deleteItem('sleep','${item.id}')">삭제</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+function renderFood() {
+  const tbody = document.querySelector('#table-food tbody');
+  tbody.innerHTML = '';
+  const list = [...data.food].sort((a,b) => (b.date+b.time).localeCompare(a.date+a.time));
+  document.getElementById('empty-food').style.display = list.length ? 'none' : 'block';
+  list.forEach(item => {
+    const tr = document.createElement('tr');
+    const photoCell = item.photo
+      ? `<img class="thumb" src="${item.photo}" onclick="openLightbox(photoLookup('food','${item.id}'))">`
+      : '-';
+    let calorieCell = '-';
+    if (item.calorie) {
+      const cst = calorieStatus(item.meal, Number(item.calorie));
+      calorieCell = `<span class="badge ${cst.cls}">${item.calorie}kcal · ${cst.text}</span>`;
+    }
+    tr.innerHTML = `<td>${item.date}</td><td>${item.time}</td><td>${item.meal}</td>
+      <td class="left">${item.menu||''}</td><td>${calorieCell}</td><td>${photoCell}</td><td class="left">${item.note||''}</td>
+      <td class="del-cell"><button class="btn del" onclick="deleteItem('food','${item.id}')">삭제</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+function renderExercise() {
+  const tbody = document.querySelector('#table-exercise tbody');
+  tbody.innerHTML = '';
+  const list = [...data.exercise].sort((a,b) => (b.date+b.time).localeCompare(a.date+a.time));
+  document.getElementById('empty-exercise').style.display = list.length ? 'none' : 'block';
+  list.forEach(item => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${item.date}</td><td>${item.time}</td><td>${item.type}</td>
+      <td>${item.duration}</td><td class="left">${item.note||''}</td>
+      <td class="del-cell"><button class="btn del" onclick="deleteItem('exercise','${item.id}')">삭제</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+function renderFasting() {
+  const tbody = document.querySelector('#table-fasting tbody');
+  tbody.innerHTML = '';
+  const list = [...data.fasting].sort((a,b) => b.start.localeCompare(a.start));
+  document.getElementById('empty-fasting').style.display = list.length ? 'none' : 'block';
+  list.forEach(item => {
+    const hours = (new Date(item.end) - new Date(item.start)) / 3600000;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${item.start.replace('T',' ')}</td><td>${item.end.replace('T',' ')}</td>
+      <td>${fmtDur(hours)}</td><td class="left">${item.note||''}</td>
+      <td class="del-cell"><button class="btn del" onclick="deleteItem('fasting','${item.id}')">삭제</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+function renderGlucose() {
+  const tbody = document.querySelector('#table-glucose tbody');
+  tbody.innerHTML = '';
+  const list = [...data.glucose].sort((a,b) => (b.date+b.time).localeCompare(a.date+a.time));
+  document.getElementById('empty-glucose').style.display = list.length ? 'none' : 'block';
+  list.forEach(item => {
+    const st = glucoseStatus(item.type, Number(item.value));
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${item.date}</td><td>${item.time}</td><td>${item.type}</td>
+      <td>${item.value}</td><td><span class="badge ${st.cls}">${st.text}</span></td>
+      <td class="left">${item.note||''}</td>
+      <td class="del-cell"><button class="btn del" onclick="deleteItem('glucose','${item.id}')">삭제</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+function renderAll() {
+  const tbody = document.querySelector('#table-all tbody');
+  tbody.innerHTML = '';
+  const rows = [];
+  data.food.forEach(i => {
+    let calTag = '';
+    if (i.calorie) {
+      const cst = calorieStatus(i.meal, Number(i.calorie));
+      calTag = ` · ${i.calorie}kcal(${cst.text})`;
+    }
+    rows.push({date:i.date, time:i.time, icon:'🍽️', label:'음식', content:`[${i.meal}] ${i.menu||'(사진 참고)'}${calTag}${i.photo ? ' 📷' : ''}`, note:i.note||''});
+  });
+  data.exercise.forEach(i => rows.push({date:i.date, time:i.time, icon:'🏃', label:'운동', content:`${i.type} ${i.duration}분`, note:i.note||''}));
+  data.fasting.forEach(i => {
+    const hours = (new Date(i.end) - new Date(i.start)) / 3600000;
+    const d = i.start.split('T')[0], t = i.start.split('T')[1];
+    rows.push({date:d, time:t, icon:'⏳', label:'단식', content:`${i.start.replace('T',' ')} ~ ${i.end.replace('T',' ')} (${fmtDur(hours)})`, note:i.note||''});
+  });
+  data.glucose.forEach(i => rows.push({date:i.date, time:i.time, icon:'🩸', label:'혈당', content:`${i.type} ${i.value}mg/dL`, note:i.note||''}));
+  data.condition.forEach(i => {
+    const b = conditionBadge(i.mood);
+    rows.push({date:i.date, time:'', icon:'😊', label:'컨디션', content:`${b.emoji} ${i.mood}`, note:i.note||''});
+  });
+  data.sleep.forEach(i => {
+    const hours = (new Date(i.end) - new Date(i.start)) / 3600000;
+    const d = i.start.split('T')[0], t = i.start.split('T')[1];
+    rows.push({date:d, time:t, icon:'😴', label:'수면', content:`${i.start.replace('T',' ')} ~ ${i.end.replace('T',' ')} (${fmtDur(hours)}, ${i.quality||''})`, note:i.note||''});
+  });
+
+  rows.sort((a,b) => (b.date+b.time).localeCompare(a.date+a.time));
+  document.getElementById('empty-all').style.display = rows.length ? 'none' : 'block';
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${r.date}</td><td>${r.time}</td><td><span class="type-icon">${r.icon}</span>${r.label}</td>
+      <td class="left">${r.content}</td><td class="left">${r.note}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+function renderAllTabs() {
+  renderFood(); renderExercise(); renderFasting(); renderGlucose(); renderCondition(); renderSleep(); renderAll(); renderCharts(); renderAnalysis();
+}
+
+let analysisPeriod = 14;
+function setAnalysisPeriod(n) {
+  analysisPeriod = n;
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', Number(b.dataset.period) === n));
+  renderAnalysis();
+}
+
+function datesAgoRange(startAgo, endAgo) {
+  const arr = [];
+  const base = new Date();
+  for (let i = startAgo; i >= endAgo; i--) {
+    const dt = new Date(base);
+    dt.setDate(base.getDate() - i);
+    arr.push(dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0'));
+  }
+  return arr;
+}
+
+function computeStats(dateSet) {
+  const inSet = d => dateSet.includes(d);
+
+  const glist = data.glucose.filter(g => inSet(g.date));
+  const gAvg = glist.length ? glist.reduce((s,g)=>s+Number(g.value),0)/glist.length : null;
+  const gWarn = glist.filter(g => glucoseStatus(g.type, Number(g.value)).cls === 'warn').length;
+  const gNormalPct = glist.length ? Math.round((glist.length-gWarn)/glist.length*100) : null;
+
+  const elist = data.exercise.filter(e => inSet(e.date));
+  const eTotalMin = elist.reduce((s,e)=>s+Number(e.duration),0);
+  const eDays = new Set(elist.map(e=>e.date)).size;
+
+  const flist = data.fasting.filter(f => inSet(f.start.split('T')[0]));
+  const fHours = flist.map(f => (new Date(f.end)-new Date(f.start))/3600000);
+  const fAvg = fHours.length ? fHours.reduce((s,h)=>s+h,0)/fHours.length : null;
+  const fOverGoal = fHours.filter(h => h >= 14).length;
+
+  const foodList = data.food.filter(f => inSet(f.date));
+  const calList = foodList.filter(f => f.calorie);
+  const calDays = new Set(calList.map(f=>f.date)).size;
+  const calAvgPerDay = calDays ? calList.reduce((s,f)=>s+Number(f.calorie),0)/calDays : null;
+
+  const condList = data.condition.filter(c => inSet(c.date));
+  const condBad = condList.filter(c => c.mood === '나쁨' || c.mood === '아주 나쁨').length;
+
+  const slist = data.sleep.filter(s => inSet(s.start.split('T')[0]));
+  const sHours = slist.map(s => (new Date(s.end)-new Date(s.start))/3600000);
+  const sAvg = sHours.length ? sHours.reduce((s,h)=>s+h,0)/sHours.length : null;
+
+  return { glist, gAvg, gWarn, gNormalPct, elist, eTotalMin, eDays, flist, fAvg, fOverGoal, foodList, calAvgPerDay, calDays, condList, condBad, slist, sAvg };
+}
+
+function computeOverallScore(cur, n) {
+  const parts = [];
+  if (cur.glist.length > 0) parts.push({ ratio: cur.gNormalPct/100, weight: 0.45 });
+  if (cur.elist.length > 0) {
+    const targetDays = Math.max(1, Math.round(n*3/7));
+    parts.push({ ratio: Math.min(1, cur.eDays/targetDays), weight: 0.2 });
+  }
+  if (cur.flist.length > 0) parts.push({ ratio: Math.min(1, cur.fAvg/16), weight: 0.15 });
+  if (cur.condList.length > 0) parts.push({ ratio: (cur.condList.length-cur.condBad)/cur.condList.length, weight: 0.15 });
+  if (cur.slist.length > 0) parts.push({ ratio: Math.min(1, cur.sAvg/7), weight: 0.2 });
+
+  if (parts.length === 0) return null;
+  const totalWeight = parts.reduce((s,p)=>s+p.weight, 0);
+  const weighted = parts.reduce((s,p)=>s+p.ratio*p.weight, 0) / totalWeight;
+  return Math.round(weighted*100);
+}
+
+function renderStatusBanner(score) {
+  const banner = document.getElementById('status-banner');
+  const emojiEl = document.getElementById('status-emoji');
+  const scoreEl = document.getElementById('status-score');
+  const descEl = document.getElementById('status-desc');
+  banner.classList.remove('good','warn','bad','neutral');
+  if (score === null) {
+    banner.classList.add('neutral');
+    emojiEl.textContent = '📋';
+    scoreEl.textContent = '-';
+    descEl.textContent = '기록을 쌓으면 관리 상태를 한눈에 보여드려요.';
+  } else if (score >= 80) {
+    banner.classList.add('good');
+    emojiEl.textContent = '😊';
+    scoreEl.textContent = score + '점';
+    descEl.textContent = '혈당 관리를 잘하고 계세요!';
+  } else if (score >= 60) {
+    banner.classList.add('warn');
+    emojiEl.textContent = '😐';
+    scoreEl.textContent = score + '점';
+    descEl.textContent = '보통이에요. 운동·단식·식사 중 부족한 부분을 조금 더 챙겨보세요.';
+  } else {
+    banner.classList.add('bad');
+    emojiEl.textContent = '⚠️';
+    scoreEl.textContent = score + '점';
+    descEl.textContent = '관리가 필요해요. 아래 분석 요약을 확인해보세요.';
+  }
+}
+
+function renderAnalysis() {
+  const n = analysisPeriod;
+  const curDates = datesAgoRange(n-1, 0);
+  const prevDates = datesAgoRange(2*n-1, n);
+  const cur = computeStats(curDates);
+  const prev = computeStats(prevDates);
+
+  renderStatusBanner(computeOverallScore(cur, n));
+
+  const statsEl = document.getElementById('analysis-stats');
+  statsEl.innerHTML = `
+    <div class="summary-item"><span class="s-label">🩸 평균 혈당</span><span class="s-value">${cur.gAvg!=null ? Math.round(cur.gAvg)+' mg/dL' : '-'}</span></div>
+    <div class="summary-item"><span class="s-label">🏃 운동한 날</span><span class="s-value">${cur.eDays}/${n}일</span></div>
+    <div class="summary-item"><span class="s-label">⏳ 평균 단식</span><span class="s-value">${cur.fAvg!=null ? cur.fAvg.toFixed(1)+'시간' : '-'}</span></div>
+    <div class="summary-item"><span class="s-label">🍽️ 평균 칼로리</span><span class="s-value">${cur.calAvgPerDay!=null ? Math.round(cur.calAvgPerDay)+' kcal' : '-'}</span></div>
+    <div class="summary-item"><span class="s-label">😊 컨디션 안좋은 날</span><span class="s-value">${cur.condList.length ? cur.condBad+'/'+cur.condList.length+'일' : '-'}</span></div>
+    <div class="summary-item"><span class="s-label">😴 평균 수면</span><span class="s-value">${cur.sAvg!=null ? cur.sAvg.toFixed(1)+'시간' : '-'}</span></div>
+  `;
+
+  const insights = [];
+
+  // 혈당
+  if (cur.glist.length === 0) {
+    insights.push({cls:'', text:'이 기간 혈당 기록이 없어요. 기록을 추가하면 분석해드려요.'});
+  } else {
+    let t = `이 기간 혈당은 평균 ${Math.round(cur.gAvg)}mg/dL, 정상 범위 비율 ${cur.gNormalPct}%예요 (총 ${cur.glist.length}회 측정, 주의 ${cur.gWarn}회).`;
+    insights.push({cls: cur.gWarn>0 ? 'warn':'good', text:t});
+    if (prev.gAvg != null) {
+      const diff = Math.round(cur.gAvg - prev.gAvg);
+      if (Math.abs(diff) >= 3) {
+        insights.push({cls: diff<0 ? 'good':'warn', text:`지난 ${n}일보다 평균 혈당이 ${diff>0?diff+'만큼 올랐어요':Math.abs(diff)+'만큼 낮아졌어요'}.`});
+      } else {
+        insights.push({cls:'', text:'지난 기간과 비교해 혈당 평균은 비슷한 수준이에요.'});
+      }
+    }
+  }
+
+  // 운동
+  if (cur.elist.length === 0) {
+    insights.push({cls:'warn', text:'이 기간 운동 기록이 없어요. 가벼운 걷기부터 시작해보세요.'});
+  } else {
+    const avgMin = Math.round(cur.eTotalMin / n);
+    let t = `운동한 날은 ${n}일 중 ${cur.eDays}일이고, 하루 평균 ${avgMin}분이에요.`;
+    const good = cur.eDays / n >= 0.4 && avgMin >= 20;
+    insights.push({cls: good?'good':'warn', text: t + (good ? ' 꾸준히 잘하고 계세요!' : ' 권장량(주 3~5회, 30분)보다 부족해요.')});
+  }
+
+  // 단식
+  if (cur.flist.length === 0) {
+    insights.push({cls:'', text:'이 기간 단식 기록이 없어요.'});
+  } else {
+    const good = cur.fAvg >= 14;
+    insights.push({cls: good?'good':'warn', text:`평균 공복 시간은 ${cur.fAvg.toFixed(1)}시간이고, ${cur.flist.length}회 중 ${cur.fOverGoal}회가 14시간 이상이에요.` + (good ? '' : ' 목표 시간을 조금 더 늘려보면 좋아요.')});
+  }
+
+  // 음식/칼로리
+  if (cur.calAvgPerDay == null) {
+    insights.push({cls:'', text:'칼로리를 기록하면 하루 섭취량 분석도 가능해요.'});
+  } else {
+    insights.push({cls:'', text:`칼로리를 기록한 날 기준, 하루 평균 약 ${Math.round(cur.calAvgPerDay)}kcal를 드셨어요.`});
+  }
+
+  // 수면
+  if (cur.slist.length === 0) {
+    insights.push({cls:'', text:'이 기간 수면 기록이 없어요.'});
+  } else {
+    const good = cur.sAvg >= 7;
+    insights.push({cls: good?'good':'warn', text:`평균 수면 시간은 ${cur.sAvg.toFixed(1)}시간이에요.` + (good ? ' 충분히 주무시고 계세요.' : ' 권장 수면 시간(7시간 이상)보다 부족해요.')});
+  }
+
+  // 컨디션
+  if (cur.condList.length === 0) {
+    insights.push({cls:'', text:'이 기간 컨디션 기록이 없어요.'});
+  } else if (cur.condBad === 0) {
+    insights.push({cls:'good', text:`이 기간 컨디션을 ${cur.condList.length}일 기록했고, 안 좋은 날은 없었어요.`});
+  } else {
+    insights.push({cls:'warn', text:`이 기간 컨디션이 나쁨/아주 나쁨이었던 날이 ${cur.condBad}일 있었어요.`});
+  }
+
+  const list = document.getElementById('analysis-insights');
+  list.innerHTML = insights.map(i => `<li class="${i.cls}">${i.text}</li>`).join('');
+}
+
+function lastNDates(n) {
+  const arr = [];
+  const base = new Date();
+  for (let i = n-1; i >= 0; i--) {
+    const dt = new Date(base);
+    dt.setDate(base.getDate() - i);
+    arr.push(dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0'));
+  }
+  return arr;
+}
+function sumByDate(list, dateField, valueField) {
+  const map = {};
+  list.forEach(i => {
+    const d = i[dateField];
+    const v = Number(i[valueField]) || 0;
+    map[d] = (map[d]||0) + v;
+  });
+  return map;
+}
+function shortDate(d) { return d.slice(5).replace('-','/'); }
+
+function drawBarChart(canvasId, labels, values, color) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+  const marginL = 34, marginB = 22, marginT = 14, marginR = 10;
+  const chartW = W - marginL - marginR;
+  const chartH = H - marginT - marginB;
+  const maxVal = Math.max(1, ...values) * 1.15;
+  ctx.strokeStyle = '#eee'; ctx.fillStyle='#999'; ctx.font = '9px sans-serif'; ctx.textAlign='right';
+  const steps = 4;
+  for (let s=0; s<=steps; s++) {
+    const y = marginT + chartH - (chartH * s/steps);
+    ctx.beginPath(); ctx.moveTo(marginL, y); ctx.lineTo(W-marginR, y); ctx.stroke();
+    ctx.fillText(String(Math.round(maxVal * s/steps)), marginL-4, y+3);
+  }
+  const gap = 4;
+  const barW = chartW/labels.length - gap;
+  labels.forEach((lab, idx) => {
+    const val = values[idx] || 0;
+    const barH = chartH * (val/maxVal);
+    const x = marginL + idx*(chartW/labels.length) + gap/2;
+    const y = marginT + chartH - barH;
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, barW, barH);
+    ctx.fillStyle = '#666'; ctx.font='8.5px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(shortDate(lab), x+barW/2, H-6);
+    if (val > 0) {
+      ctx.fillStyle = '#333'; ctx.font='9px sans-serif'; ctx.textAlign='center';
+      ctx.fillText(String(val), x+barW/2, y-3);
+    }
+  });
+}
+
+function drawGlucoseChart(canvasId, entries) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+  const marginL = 34, marginB = 30, marginT = 14, marginR = 40;
+  const chartW = W - marginL - marginR;
+  const chartH = H - marginT - marginB;
+  if (entries.length === 0) {
+    ctx.fillStyle='#999'; ctx.font='11px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('데이터 없음', W/2, H/2);
+    return;
+  }
+  const values = entries.map(e => Number(e.value));
+  const maxVal = Math.max(200, ...values) * 1.05;
+  ctx.strokeStyle = '#eee'; ctx.fillStyle='#999'; ctx.font='9px sans-serif'; ctx.textAlign='right';
+  const steps = 4;
+  for (let s=0; s<=steps; s++) {
+    const y = marginT + chartH - (chartH*s/steps);
+    ctx.beginPath(); ctx.moveTo(marginL,y); ctx.lineTo(W-marginR,y); ctx.stroke();
+    ctx.fillText(String(Math.round(maxVal*s/steps)), marginL-4, y+3);
+  }
+  function refLine(val, label, color) {
+    const y = marginT + chartH - chartH*(val/maxVal);
+    ctx.save();
+    ctx.strokeStyle=color; ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.moveTo(marginL,y); ctx.lineTo(W-marginR,y); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle=color; ctx.font='8px sans-serif'; ctx.textAlign='left';
+    ctx.fillText(label, W-marginR+2, y+3);
+    ctx.restore();
+  }
+  refLine(130, '130', '#E8A33D');
+  refLine(180, '180', '#D6437D');
+
+  const stepX = chartW/(entries.length>1 ? entries.length-1 : 1);
+  ctx.strokeStyle = '#2E86AB'; ctx.lineWidth=1.5; ctx.beginPath();
+  entries.forEach((e,idx) => {
+    const x = marginL + idx*stepX;
+    const y = marginT + chartH - chartH*(Number(e.value)/maxVal);
+    if (idx===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+  entries.forEach((e,idx) => {
+    const x = marginL + idx*stepX;
+    const y = marginT + chartH - chartH*(Number(e.value)/maxVal);
+    const st = glucoseStatus(e.type, Number(e.value));
+    ctx.fillStyle = st.cls==='warn' ? '#D6437D' : '#2E7D32';
+    ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fill();
+  });
+  const labelEvery = Math.max(1, Math.ceil(entries.length/8));
+  ctx.fillStyle='#666'; ctx.font='8px sans-serif'; ctx.textAlign='center';
+  entries.forEach((e,idx) => {
+    if (idx % labelEvery !== 0 && idx !== entries.length-1) return;
+    const x = marginL + idx*stepX;
+    ctx.save();
+    ctx.translate(x, H-marginB+10);
+    ctx.rotate(-Math.PI/6);
+    ctx.fillText(shortDate(e.date)+' '+e.time, 0,0);
+    ctx.restore();
+  });
+}
+
+function renderCharts() {
+  const dates = lastNDates(14);
+
+  const calMap = sumByDate(data.food.filter(f=>f.calorie), 'date', 'calorie');
+  drawBarChart('chart-calorie', dates, dates.map(d => Math.round(calMap[d]||0)), '#4CAF50');
+
+  const exMap = sumByDate(data.exercise, 'date', 'duration');
+  drawBarChart('chart-exercise', dates, dates.map(d => Math.round(exMap[d]||0)), '#4285C7');
+
+  const fastMap = {};
+  data.fasting.forEach(i => {
+    const d = i.start.split('T')[0];
+    const hours = (new Date(i.end)-new Date(i.start))/3600000;
+    fastMap[d] = (fastMap[d]||0)+hours;
+  });
+  drawBarChart('chart-fasting', dates, dates.map(d => Math.round((fastMap[d]||0)*10)/10), '#D69A2D');
+
+  const glist = [...data.glucose].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).slice(-20);
+  drawGlucoseChart('chart-glucose', glist);
+
+  const todayD = todayStr();
+  document.getElementById('sum-calorie').textContent = Math.round(calMap[todayD]||0) + ' kcal';
+  document.getElementById('sum-exercise').textContent = Math.round(exMap[todayD]||0) + ' 분';
+  const lastFast = [...data.fasting].sort((a,b)=>b.start.localeCompare(a.start))[0];
+  document.getElementById('sum-fasting').textContent = lastFast ? fmtDur((new Date(lastFast.end)-new Date(lastFast.start))/3600000) : '-';
+  const lastGlucose = [...data.glucose].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time))[0];
+  document.getElementById('sum-glucose').textContent = lastGlucose ? (lastGlucose.value + ' mg/dL (' + lastGlucose.type + ')') : '-';
+}
+
+function deleteItem(type, id) {
+  data[type] = data[type].filter(i => i.id !== id);
+  saveData(data);
+  renderAllTabs();
+}
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function nowTimeStr() {
+  const d = new Date();
+  return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+
+document.getElementById('form-food').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const menu = f.get('menu');
+  if (!menu && !pendingFoodPhoto) { alert('메뉴를 적거나 사진을 첨부해주세요.'); return; }
+  data.food.push({ id: uid(), date: f.get('date'), time: f.get('time'), meal: f.get('meal'), menu: menu, calorie: f.get('calorie') ? Number(f.get('calorie')) : null, note: f.get('note'), photo: pendingFoodPhoto });
+  saveData(data); renderAllTabs(); e.target.reset();
+  e.target.querySelector('[name="date"]').value = todayStr();
+  clearFoodPhoto();
+});
+document.getElementById('form-exercise').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  data.exercise.push({ id: uid(), date: f.get('date'), time: f.get('time'), type: f.get('type'), duration: f.get('duration'), note: f.get('note') });
+  saveData(data); renderAllTabs(); e.target.reset();
+  e.target.querySelector('[name="date"]').value = todayStr();
+});
+document.getElementById('form-fasting').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const start = f.get('start'), end = f.get('end');
+  if (new Date(end) <= new Date(start)) { alert('종료 시간이 시작 시간보다 나중이어야 해요.'); return; }
+  data.fasting.push({ id: uid(), start, end, note: f.get('note') });
+  saveData(data); renderAllTabs(); e.target.reset();
+});
+document.getElementById('form-glucose').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  data.glucose.push({ id: uid(), date: f.get('date'), time: f.get('time'), type: f.get('type'), value: f.get('value'), note: f.get('note') });
+  saveData(data); renderAllTabs(); e.target.reset();
+  e.target.querySelector('[name="date"]').value = todayStr();
+});
+
+document.getElementById('form-sleep').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const start = f.get('start'), end = f.get('end');
+  if (new Date(end) <= new Date(start)) { alert('기상 시간이 취침 시간보다 나중이어야 해요.'); return; }
+  data.sleep.push({ id: uid(), start, end, quality: f.get('quality'), note: f.get('note') });
+  saveData(data); renderAllTabs(); e.target.reset();
+});
+document.getElementById('form-condition').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  data.condition.push({ id: uid(), date: f.get('date'), mood: f.get('mood'), note: f.get('note') });
+  saveData(data); renderAllTabs(); e.target.reset();
+  e.target.querySelector('[name="date"]').value = todayStr();
+});
+
+// 기본값: 오늘 날짜 / 현재 시간
+['form-food','form-exercise','form-glucose','form-condition'].forEach(id => {
+  const form = document.getElementById(id);
+  if (form.querySelector('[name="date"]')) form.querySelector('[name="date"]').value = todayStr();
+  if (form.querySelector('[name="time"]')) form.querySelector('[name="time"]').value = nowTimeStr();
+});
+
+renderAllTabs();
+</script>
+</body>
+</html>

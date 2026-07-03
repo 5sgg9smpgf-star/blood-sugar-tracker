@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>혈당 관리 시트</title>
+<style>
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", sans-serif;
+    margin: 0;
+    padding: 0;
+    color: #2b2b2b;
+    background: #f4f4f4;
+  }
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto 10mm auto;
+    background: white;
+    padding: 10mm;
+    page-break-after: always;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  h1.title {
+    text-align: center;
+    font-size: 26px;
+    color: #ffffff;
+    background: linear-gradient(135deg, #2E86AB, #1B5E7A);
+    padding: 12px;
+    border-radius: 10px;
+    margin: 0 0 6mm 0;
+    letter-spacing: 2px;
+  }
+  h1.title small {
+    display: block;
+    font-size: 13px;
+    font-weight: normal;
+    margin-top: 4px;
+    opacity: 0.9;
+  }
+
+  .grid2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6mm;
+    margin-bottom: 6mm;
+  }
+
+  .card {
+    border-radius: 10px;
+    padding: 4mm 5mm;
+    border: 2px solid transparent;
+  }
+  .card h2 {
+    font-size: 16px;
+    margin: 0 0 3mm 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .card h2 .icon { font-size: 20px; }
+
+  .card.food     { background: #EAF7EA; border-color: #6CBF6C; }
+  .card.exercise { background: #EAF1FB; border-color: #6C9BEF; }
+  .card.fasting  { background: #FBF3E4; border-color: #E8B15A; }
+  .card.measure  { background: #FBEAF2; border-color: #E36FA0; }
+
+  .subrow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4mm;
+  }
+  .goodbad {
+    border-radius: 8px;
+    padding: 3mm;
+    font-size: 11.5px;
+    line-height: 1.55;
+  }
+  .goodbad.good { background: rgba(108,191,108,0.15); }
+  .goodbad.bad  { background: rgba(220,90,90,0.12); }
+  .goodbad .label {
+    font-weight: bold;
+    margin-bottom: 2mm;
+    display: block;
+  }
+  .goodbad.good .label { color: #2E7D32; }
+  .goodbad.bad .label { color: #B71C1C; }
+  ul.tick { list-style: none; padding: 0; margin: 0; }
+  ul.tick li { margin-bottom: 1.5mm; }
+
+  .card p, .card li { font-size: 11.5px; line-height: 1.6; margin: 0 0 1.5mm 0; }
+
+  .tip-list { list-style: none; padding: 0; margin: 0; }
+  .tip-list li {
+    background: rgba(255,255,255,0.6);
+    border-radius: 6px;
+    padding: 2mm 3mm;
+    margin-bottom: 2mm;
+    font-size: 11.5px;
+    line-height: 1.5;
+  }
+  .tip-list li b { color: #1B5E7A; }
+
+  .fasting-methods {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 3mm;
+    margin-top: 2mm;
+  }
+  .fasting-methods .method {
+    background: rgba(255,255,255,0.7);
+    border-radius: 8px;
+    padding: 3mm;
+    text-align: center;
+  }
+  .fasting-methods .method .big {
+    font-size: 18px;
+    font-weight: bold;
+    color: #B8860B;
+    display: block;
+    margin-bottom: 1mm;
+  }
+  .fasting-methods .method .desc { font-size: 10.5px; line-height: 1.4; }
+
+  .measure-card ul.tick li::before { content: "⏰ "; }
+
+  .target-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 2mm;
+    font-size: 11px;
+  }
+  .target-table th, .target-table td {
+    border: 1px solid #d9a8bf;
+    padding: 1.5mm 2mm;
+    text-align: center;
+  }
+  .target-table th { background: #E36FA0; color: white; }
+  .target-table td.normal { color: #2E7D32; font-weight: bold; }
+  .target-table td.warn { color: #B71C1C; font-weight: bold; }
+
+  .footer-note {
+    text-align: center;
+    font-size: 10px;
+    color: #888;
+    margin-top: 4mm;
+  }
+
+  /* ===== 기록표 페이지 ===== */
+  .log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5mm;
+  }
+  .log-header .field {
+    font-size: 12px;
+  }
+  .log-header .field span.line {
+    display: inline-block;
+    min-width: 40mm;
+    border-bottom: 1px solid #999;
+    margin-left: 3mm;
+  }
+
+  table.log {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10.5px;
+  }
+  table.log th {
+    background: #2E86AB;
+    color: white;
+    padding: 2mm 1mm;
+    border: 1px solid #1B5E7A;
+  }
+  table.log td {
+    border: 1px solid #ccc;
+    padding: 3.2mm 1mm;
+    text-align: center;
+    height: 6mm;
+  }
+  table.log td.day-cell {
+    background: #f0f6fb;
+    font-weight: bold;
+  }
+  table.log tr:nth-child(even) td:not(.day-cell) { background: #fafafa; }
+
+  .legend {
+    display: flex;
+    gap: 6mm;
+    justify-content: center;
+    margin: 4mm 0;
+    font-size: 10.5px;
+    flex-wrap: wrap;
+  }
+  .legend .item { display: flex; align-items: center; gap: 2mm; }
+  .legend .swatch {
+    width: 10px; height: 10px; border-radius: 2px; display: inline-block;
+  }
+
+  .mini-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6mm;
+    margin-top: 6mm;
+  }
+  .mini-card {
+    border: 1.5px dashed #aaa;
+    border-radius: 8px;
+    padding: 4mm;
+    font-size: 11px;
+    min-height: 30mm;
+  }
+  .mini-card h3 {
+    font-size: 12.5px;
+    margin: 0 0 2mm 0;
+    color: #1B5E7A;
+  }
+
+  @media print {
+    body { background: white; }
+    .page { box-shadow: none; margin: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= PAGE 1: 인포그래픽 ================= -->
+<div class="page">
+  <h1 class="title">🩸 혈당 관리 한 장 정리
+    <small>음식 · 운동 · 간헐적 단식 · 혈당 목표수치</small>
+  </h1>
+
+  <div class="grid2">
+    <!-- 음식 카드 -->
+    <div class="card food">
+      <h2><span class="icon">🍽️</span> 음식 관리</h2>
+      <div class="subrow">
+        <div class="goodbad good">
+          <span class="label">✅ 좋은 음식</span>
+          <ul class="tick">
+            <li>· 현미, 잡곡밥, 귀리</li>
+            <li>· 나물, 채소 (특히 잎채소)</li>
+            <li>· 생선, 두부, 콩류</li>
+            <li>· 견과류 (소량)</li>
+            <li>· 물, 무가당 차</li>
+          </ul>
+        </div>
+        <div class="goodbad bad">
+          <span class="label">🚫 피해야 할 음식</span>
+          <ul class="tick">
+            <li>· 흰쌀밥, 흰빵, 면류</li>
+            <li>· 과일주스, 탄산음료</li>
+            <li>· 케이크, 과자, 아이스크림</li>
+            <li>· 튀김류</li>
+            <li>· 술 (특히 공복 음주)</li>
+          </ul>
+        </div>
+      </div>
+      <p style="margin-top:3mm;"><b>💡 순서 팁:</b> 채소 → 단백질 → 탄수화물 순서로 먹으면 혈당이 천천히 올라가요.</p>
+    </div>
+
+    <!-- 운동 카드 -->
+    <div class="card exercise">
+      <h2><span class="icon">🏃</span> 운동 관리</h2>
+      <ul class="tip-list">
+        <li><b>식후 걷기 15~20분</b> — 식사 후 30분 이내 걷기 시작하면 혈당 상승을 줄여줘요.</li>
+        <li><b>주 3~5회 유산소 운동</b> — 빠르게 걷기, 자전거, 수영 등 30분씩</li>
+        <li><b>근력 운동 주 2회</b> — 근육이 많을수록 혈당 조절이 잘 돼요.</li>
+        <li><b>계단 오르기</b> — 엘리베이터 대신 계단, 짧게라도 자주 움직이기</li>
+      </ul>
+      <p style="margin-top:3mm;">⚠️ 공복 혈당이 너무 낮을 땐(70 이하) 격렬한 운동은 피하세요.</p>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <!-- 간헐적 단식 카드 -->
+    <div class="card fasting">
+      <h2><span class="icon">⏳</span> 간헐적 단식</h2>
+      <p>공복 시간을 늘려 인슐린이 쉬는 시간을 만들어주는 방법이에요.</p>
+      <div class="fasting-methods">
+        <div class="method">
+          <span class="big">16:8</span>
+          <span class="desc">16시간 공복<br>8시간 안에 식사<br>(가장 쉬움)</span>
+        </div>
+        <div class="method">
+          <span class="big">14:10</span>
+          <span class="desc">14시간 공복<br>10시간 안에 식사<br>(초보자용)</span>
+        </div>
+        <div class="method">
+          <span class="big">18:6</span>
+          <span class="desc">18시간 공복<br>6시간 안에 식사<br>(익숙해진 후)</span>
+        </div>
+      </div>
+      <p style="margin-top:3mm;">⚠️ 당뇨약 복용 중이라면 반드시 <b>의사와 상담 후</b> 시작하세요.</p>
+    </div>
+
+    <!-- 혈당 측정 카드 -->
+    <div class="card measure">
+      <h2><span class="icon">🩸</span> 혈당 측정 가이드</h2>
+      <ul class="tick">
+        <li>공복 혈당: 아침 식사 전, 최소 8시간 금식 후</li>
+        <li>식후 혈당: 식사 시작 후 2시간 뒤</li>
+        <li>같은 손가락만 계속 찌르지 말고 번갈아가며 측정</li>
+        <li>측정 전 손을 깨끗이 씻고 완전히 말리기</li>
+      </ul>
+      <table class="target-table">
+        <tr><th>구분</th><th>정상 목표</th><th>주의 필요</th></tr>
+        <tr><td>공복 혈당</td><td class="normal">80~130</td><td class="warn">130 이상</td></tr>
+        <tr><td>식후 2시간</td><td class="normal">180 미만</td><td class="warn">180 이상</td></tr>
+      </table>
+      <p style="margin-top:2mm; font-size:10px;">※ 단위: mg/dL, 개인별 목표는 담당 의사와 상담하세요.</p>
+    </div>
+  </div>
+
+  <div class="footer-note">이 자료는 일반적인 생활 관리 팁이며, 진단·치료는 반드시 의료진과 상담하세요.</div>
+</div>
+
+<!-- ================= PAGE 2: 혈당 측정 기록표 ================= -->
+<div class="page">
+  <h1 class="title">📋 혈당 측정 기록표
+    <small>매일 기록하고 패턴을 확인해보세요</small>
+  </h1>
+
+  <div class="log-header">
+    <div class="field">이름 <span class="line"></span></div>
+    <div class="field">기간 <span class="line"></span></div>
+  </div>
+
+  <table class="log">
+    <thead>
+      <tr>
+        <th style="width:9%;">날짜</th>
+        <th style="width:9%;">공복<br>혈당</th>
+        <th style="width:9%;">아침 후<br>2시간</th>
+        <th style="width:9%;">점심 후<br>2시간</th>
+        <th style="width:9%;">저녁 후<br>2시간</th>
+        <th style="width:10%;">간헐적<br>단식 (O/X)</th>
+        <th style="width:10%;">운동<br>(분)</th>
+        <th style="width:35%;">식사/컨디션 메모</th>
+      </tr>
+    </thead>
+    <tbody id="logbody">
+      <!-- 14일치 행 -->
+    </tbody>
+  </table>
+
+  <div class="legend">
+    <div class="item"><span class="swatch" style="background:#c8e6c9;"></span> 정상 범위</div>
+    <div class="item"><span class="swatch" style="background:#ffe0b2;"></span> 약간 높음</div>
+    <div class="item"><span class="swatch" style="background:#ffcdd2;"></span> 주의 필요</div>
+  </div>
+
+  <div class="mini-grid">
+    <div class="mini-card">
+      <h3>📝 이번 기간 메모</h3>
+      <p>&nbsp;</p><p>&nbsp;</p><p>&nbsp;</p>
+    </div>
+    <div class="mini-card">
+      <h3>🎯 다음 목표</h3>
+      <p>&nbsp;</p><p>&nbsp;</p><p>&nbsp;</p>
+    </div>
+  </div>
+
+  <div class="footer-note">공복 80~130 / 식후 180 미만이 일반적인 목표 범위예요 (개인차 있음, 의료진 상담 권장)</div>
+</div>
+
+<script>
+  const tbody = document.getElementById('logbody');
+  for (let i = 1; i <= 14; i++) {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td class="day-cell">${i}일</td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+      <td></td>
+    `;
+    tbody.appendChild(row);
+  }
+</script>
+
+</body>
+</html>
