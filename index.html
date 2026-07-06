@@ -58,6 +58,10 @@
   .card.bp h2 { color:#B0392A; }
 
   .form-row { display:flex; gap: 3mm; flex-wrap: wrap; margin-bottom: 3mm; align-items:flex-end; }
+  .filter-row { display:flex; gap: 3mm; flex-wrap: wrap; margin-bottom: 2mm; align-items:flex-end; }
+  .btn.filter { background:#2E86AB; }
+  .btn.filter-clear { background:#999; }
+  .filter-count { font-size:11px; color:#888; margin-bottom:2mm; }
   .form-field { display:flex; flex-direction:column; gap:1mm; font-size:11.5px; }
   .form-field label { font-weight:bold; color:#555; }
   .form-field input, .form-field select {
@@ -189,6 +193,7 @@
     .card h2 { font-size: 16px; }
 
     .form-row { flex-direction: column; align-items: stretch; }
+    .filter-row { flex-direction: column; align-items: stretch; }
     .form-field, .form-field.grow { width: 100%; }
     .form-field label { font-size: 13px; }
     .form-field input, .form-field select {
@@ -217,7 +222,7 @@
 
   @media print {
     body { background:white; }
-    .tabs, .card form, .bottom-actions, .del-cell, .period-btns, .global-date-bar { display:none !important; }
+    .tabs, .card form, .bottom-actions, .del-cell, .period-btns, .global-date-bar, .filter-row { display:none !important; }
     .tab-content { display:block !important; }
     .card { box-shadow:none; border:1px solid #ccc; page-break-inside: avoid; }
   }
@@ -250,6 +255,13 @@
   <div class="tab-content active" id="tab-all">
     <div class="card">
       <h2>📋 전체 기록 (최신순)</h2>
+      <div class="filter-row">
+        <div class="form-field"><label>시작일</label><input type="date" id="filter-start"></div>
+        <div class="form-field"><label>종료일</label><input type="date" id="filter-end"></div>
+        <button type="button" class="btn filter" onclick="applyDateFilter()">조회</button>
+        <button type="button" class="btn filter-clear" onclick="clearDateFilter()">전체보기</button>
+      </div>
+      <div class="filter-count" id="filter-count"></div>
       <table id="table-all">
         <thead><tr><th>날짜</th><th>시간</th><th>구분</th><th style="width:45%;">내용</th><th>비고</th></tr></thead>
         <tbody></tbody>
@@ -884,13 +896,42 @@ function renderAll() {
   data.bp.forEach(i => rows.push({date:i.date, time:i.time, icon:'🫀', label:'혈압', content:`${i.systolic}/${i.diastolic} mmHg${i.pulse ? ' · 맥박 '+i.pulse : ''}`, note:i.note||''}));
 
   rows.sort((a,b) => (b.date+b.time).localeCompare(a.date+a.time));
-  document.getElementById('empty-all').style.display = rows.length ? 'none' : 'block';
-  rows.forEach(r => {
+
+  let filtered = rows;
+  if (filterStart) filtered = filtered.filter(r => r.date >= filterStart);
+  if (filterEnd) filtered = filtered.filter(r => r.date <= filterEnd);
+
+  const countEl = document.getElementById('filter-count');
+  countEl.textContent = (filterStart || filterEnd)
+    ? `조회 결과: ${filtered.length}건 (전체 ${rows.length}건 중)`
+    : `전체 ${rows.length}건`;
+
+  const emptyEl = document.getElementById('empty-all');
+  emptyEl.style.display = filtered.length ? 'none' : 'block';
+  emptyEl.textContent = (filterStart || filterEnd)
+    ? '이 기간에는 기록이 없어요.'
+    : '아직 기록이 없어요. 위 탭에서 하나씩 추가해보세요.';
+  filtered.forEach(r => {
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${r.date}</td><td>${r.time}</td><td><span class="type-icon">${r.icon}</span>${r.label}</td>
       <td class="left">${r.content}</td><td class="left">${r.note}</td>`;
     tbody.appendChild(tr);
   });
+}
+
+let filterStart = null;
+let filterEnd = null;
+function applyDateFilter() {
+  filterStart = document.getElementById('filter-start').value || null;
+  filterEnd = document.getElementById('filter-end').value || null;
+  renderAll();
+}
+function clearDateFilter() {
+  filterStart = null;
+  filterEnd = null;
+  document.getElementById('filter-start').value = '';
+  document.getElementById('filter-end').value = '';
+  renderAll();
 }
 function renderAllTabs() {
   renderFood(); renderExercise(); renderFasting(); renderGlucose(); renderCondition(); renderSleep(); renderBP(); renderAll(); renderCharts(); renderAnalysis(); renderMenuDatalist();
