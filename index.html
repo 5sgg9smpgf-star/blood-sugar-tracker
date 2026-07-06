@@ -224,13 +224,13 @@
 
   <div class="tabs">
     <button class="tab-btn active" data-tab="all" onclick="switchTab('all')">전체 기록</button>
-    <button class="tab-btn" data-tab="food" onclick="switchTab('food')">🍽️ 음식</button>
-    <button class="tab-btn" data-tab="exercise" onclick="switchTab('exercise')">🏃 운동</button>
-    <button class="tab-btn" data-tab="fasting" onclick="switchTab('fasting')">⏳ 단식</button>
     <button class="tab-btn" data-tab="glucose" onclick="switchTab('glucose')">🩸 혈당</button>
-    <button class="tab-btn" data-tab="condition" onclick="switchTab('condition')">😊 컨디션</button>
-    <button class="tab-btn" data-tab="sleep" onclick="switchTab('sleep')">😴 수면</button>
+    <button class="tab-btn" data-tab="exercise" onclick="switchTab('exercise')">🏃 운동</button>
+    <button class="tab-btn" data-tab="food" onclick="switchTab('food')">🍽️ 음식</button>
+    <button class="tab-btn" data-tab="fasting" onclick="switchTab('fasting')">⏳ 단식</button>
     <button class="tab-btn" data-tab="bp" onclick="switchTab('bp')">🫀 혈압</button>
+    <button class="tab-btn" data-tab="sleep" onclick="switchTab('sleep')">😴 수면</button>
+    <button class="tab-btn" data-tab="condition" onclick="switchTab('condition')">😊 컨디션</button>
     <button class="tab-btn" data-tab="chart" onclick="switchTab('chart')">📊 그래프</button>
     <button class="tab-btn" data-tab="analysis" onclick="switchTab('analysis')">🔍 분석 요약</button>
   </div>
@@ -618,10 +618,43 @@ const FOOD_CALORIE_DB = {
   '고등어구이':350,'갈치구이':300,'삼치구이':300,'조기구이':250,'굴비':250,'생선구이':300,'생선조림':300,
   '고등어조림':350,'연어':250,'연어스테이크':400,'참치캔':180,'참치김밥':450,'새우튀김':350,'새우구이':200,
   '새우찜':180,'문어숙회':200,'전복죽':350,'전복구이':250,'조개찜':200,'꽃게탕':400,'대게':300,'킹크랩':350,
-  '홍합탕':200,'굴':100,'코다리조림':350,'아귀찜':500,'생선까스':500,'바지락칼국수':500
+  '홍합탕':200,'굴':100,'코다리조림':350,'아귀찜':500,'생선까스':500,'바지락칼국수':500,
+
+  '된장국':200,'돼지고기':300,'돼지고기볶음':400,'소고기':300,'닭고기':250,'흑미밥':300,'잡곡밥반공기':150,'흰쌀밥반공기':150
 };
 
 const FOOD_PARTICLES = ['이랑도','이랑','하고','까지','에서','한테','으로','이나','랑도','도','는','은','이','가','을','를','로','와','과','랑'];
+
+function exactOrParticleMatch(phrase, db) {
+  if (Object.prototype.hasOwnProperty.call(db, phrase)) return phrase;
+  const noSpace = phrase.replace(/\s+/g, '');
+  if (noSpace !== phrase && Object.prototype.hasOwnProperty.call(db, noSpace)) return noSpace;
+  for (const variant of [phrase, noSpace]) {
+    for (const p of FOOD_PARTICLES) {
+      if (variant.endsWith(p) && variant.length > p.length) {
+        const stripped = variant.slice(0, -p.length);
+        if (Object.prototype.hasOwnProperty.call(db, stripped)) return stripped;
+      }
+    }
+  }
+  return null;
+}
+
+function substringMatch(seg, db) {
+  let bestKey = null;
+  for (const key in db) {
+    if (key.length >= 3 && seg.includes(key)) {
+      if (!bestKey || key.length > bestKey.length) bestKey = key;
+    }
+  }
+  if (bestKey) return bestKey;
+  if (seg.length < 2) return null;
+  const candidates = [];
+  for (const key in db) {
+    if (key.includes(seg)) candidates.push(key);
+  }
+  return candidates.length === 1 ? candidates[0] : null;
+}
 
 function estimateCalorie(text) {
   if (!text || !text.trim()) return null;
@@ -630,40 +663,26 @@ function estimateCalorie(text) {
   if (Object.prototype.hasOwnProperty.call(db, trimmed)) {
     return { total: db[trimmed], matched: [trimmed] };
   }
-  const segments = text.split(/[,+\/、·\s]+/).map(s => s.trim()).filter(Boolean);
+
+  const phrases = text.split(/[,+\/、·]+/).map(s => s.trim()).filter(Boolean);
   const matched = [];
   let total = 0;
-  segments.forEach(seg => {
-    let bestKey = null;
-    if (Object.prototype.hasOwnProperty.call(db, seg)) {
-      bestKey = seg;
+
+  function addMatch(key) {
+    if (key && !matched.includes(key)) { matched.push(key); total += db[key]; }
+  }
+
+  phrases.forEach(phrase => {
+    const wholeKey = exactOrParticleMatch(phrase, db);
+    if (wholeKey) { addMatch(wholeKey); return; }
+    const words = phrase.split(/\s+/).filter(Boolean);
+    if (words.length > 1) {
+      words.forEach(w => addMatch(exactOrParticleMatch(w, db) || substringMatch(w, db)));
     } else {
-      for (const p of FOOD_PARTICLES) {
-        if (seg.endsWith(p) && seg.length > p.length) {
-          const stripped = seg.slice(0, -p.length);
-          if (Object.prototype.hasOwnProperty.call(db, stripped)) { bestKey = stripped; break; }
-        }
-      }
-    }
-    if (!bestKey) {
-      for (const key in db) {
-        if (seg.includes(key)) {
-          if (!bestKey || key.length > bestKey.length) bestKey = key;
-        }
-      }
-    }
-    if (!bestKey) {
-      for (const key in db) {
-        if (key.includes(seg)) {
-          if (!bestKey || key.length < bestKey.length) bestKey = key;
-        }
-      }
-    }
-    if (bestKey && !matched.includes(bestKey)) {
-      matched.push(bestKey);
-      total += db[bestKey];
+      addMatch(substringMatch(phrase, db));
     }
   });
+
   if (matched.length === 0) return null;
   return { total, matched };
 }
