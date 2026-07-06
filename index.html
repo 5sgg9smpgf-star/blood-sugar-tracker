@@ -247,7 +247,7 @@
       </div>
       <div class="filter-count" id="filter-count"></div>
       <table id="table-all">
-        <thead><tr><th>날짜</th><th>시간</th><th>구분</th><th style="width:45%;">내용</th><th>비고</th></tr></thead>
+        <thead><tr><th>날짜</th><th>구분</th><th style="width:50%;">내용</th><th>비고</th></tr></thead>
         <tbody></tbody>
       </table>
       <div class="empty-msg" id="empty-all" style="display:none;">아직 기록이 없어요. 위 탭에서 하나씩 추가해보세요.</div>
@@ -891,7 +891,7 @@ function renderAll() {
     : '아직 기록이 없어요. 위 탭에서 하나씩 추가해보세요.';
   filtered.forEach(r => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${r.date}</td><td>${r.time}</td><td><span class="type-icon">${r.icon}</span>${r.label}</td>
+    tr.innerHTML = `<td>${r.date}</td><td><span class="type-icon">${r.icon}</span>${r.label}</td>
       <td class="left">${r.content}</td><td class="left">${r.note}</td>`;
     tbody.appendChild(tr);
   });
