@@ -117,25 +117,6 @@
 
   .calorie-hint { font-size:10.5px; color:#2E7D32; line-height:1.4; }
 
-  .photo-field { display:flex; flex-direction:column; gap:1mm; font-size:11.5px; }
-  .photo-field label { font-weight:bold; color:#555; }
-  .photo-preview-wrap { display:flex; align-items:center; gap:2mm; }
-  .photo-preview-wrap img {
-    width:42px; height:42px; object-fit:cover; border-radius:6px; border:1px solid #ccc;
-  }
-  .photo-clear {
-    background:#eee; border:none; border-radius:5px; font-size:10.5px; padding:1mm 2mm; cursor:pointer;
-  }
-  .thumb {
-    width:32px; height:32px; object-fit:cover; border-radius:5px; cursor:pointer; border:1px solid #ccc;
-  }
-  .lightbox {
-    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75);
-    align-items:center; justify-content:center; z-index:999; cursor:zoom-out;
-  }
-  .lightbox.open { display:flex; }
-  .lightbox img { max-width:90%; max-height:90%; border-radius:8px; }
-
   .summary-grid { display:grid; grid-template-columns: repeat(4,1fr); gap:3mm; }
   .summary-item { background:#f7f7f7; border-radius:8px; padding:3mm; text-align:center; }
   .s-label { display:block; font-size:10.5px; color:#666; margin-bottom:1mm; }
@@ -215,9 +196,6 @@
     .status-banner .emoji { font-size: 42px; }
     .status-banner .score { font-size: 26px; }
     .status-banner .desc { font-size: 13px; }
-
-    .photo-preview-wrap img { width: 52px; height: 52px; }
-    .thumb { width: 42px; height: 42px; }
   }
 
   @media print {
@@ -277,7 +255,6 @@
       <form id="form-food">
         <div class="form-row">
           <input type="hidden" name="date">
-          <div class="form-field"><label>시간</label><input type="time" name="time" required></div>
           <div class="form-field">
             <label>끼니</label>
             <select name="meal">
@@ -286,7 +263,7 @@
           </div>
           <div class="form-field grow">
             <label>메뉴</label>
-            <input type="text" name="menu" list="food-menu-list" placeholder="사진만 첨부해도 돼요" oninput="handleMenuInput(this.value)">
+            <input type="text" name="menu" list="food-menu-list" placeholder="음식 이름 입력" oninput="handleMenuInput(this.value)">
             <datalist id="food-menu-list"></datalist>
           </div>
           <div class="form-field">
@@ -295,21 +272,11 @@
             <div class="calorie-hint" id="calorie-hint" style="display:none;"></div>
           </div>
           <div class="form-field grow"><label>메모</label><input type="text" name="note" placeholder="선택 입력"></div>
-        </div>
-        <div class="form-row">
-          <div class="photo-field">
-            <label>사진 (선택)</label>
-            <input type="file" accept="image/*" id="food-photo-input" onchange="handleFoodPhoto(event)">
-          </div>
-          <div class="photo-preview-wrap" id="food-photo-preview" style="display:none;">
-            <img id="food-photo-img" src="">
-            <button type="button" class="photo-clear" onclick="clearFoodPhoto()">사진 지우기</button>
-          </div>
           <button type="submit" class="btn food">추가</button>
         </div>
       </form>
       <table id="table-food">
-        <thead><tr><th>날짜</th><th>시간</th><th>끼니</th><th style="width:26%;">메뉴</th><th>칼로리</th><th>사진</th><th>메모</th><th>삭제</th></tr></thead>
+        <thead><tr><th>날짜</th><th>끼니</th><th style="width:30%;">메뉴</th><th>칼로리</th><th>메모</th><th>삭제</th></tr></thead>
         <tbody></tbody>
       </table>
       <div class="empty-msg" id="empty-food" style="display:none;">음식 기록이 없어요.</div>
@@ -546,10 +513,6 @@
   </div>
 </div>
 
-<div class="lightbox" id="lightbox" onclick="closeLightbox()">
-  <img id="lightbox-img" src="">
-</div>
-
 <script>
 const STORAGE_KEY = "혈당기록_데이터";
 
@@ -576,47 +539,6 @@ function switchTab(tab) {
 }
 
 function uid() { return Date.now() + '-' + Math.random().toString(36).slice(2,7); }
-
-let pendingFoodPhoto = null;
-
-function handleFoodPhoto(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const img = new Image();
-    img.onload = function() {
-      const maxW = 480;
-      const scale = Math.min(1, maxW / img.width);
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      pendingFoodPhoto = canvas.toDataURL('image/jpeg', 0.7);
-      document.getElementById('food-photo-img').src = pendingFoodPhoto;
-      document.getElementById('food-photo-preview').style.display = 'flex';
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-function clearFoodPhoto() {
-  pendingFoodPhoto = null;
-  document.getElementById('food-photo-input').value = '';
-  document.getElementById('food-photo-preview').style.display = 'none';
-}
-function openLightbox(src) {
-  document.getElementById('lightbox-img').src = src;
-  document.getElementById('lightbox').classList.add('open');
-}
-function closeLightbox() {
-  document.getElementById('lightbox').classList.remove('open');
-}
-function photoLookup(type, id) {
-  const item = data[type].find(i => i.id === id);
-  return item ? item.photo : null;
-}
 
 function fmtDur(hours) {
   return hours.toFixed(1) + '시간';
@@ -805,20 +727,17 @@ function renderSleep() {
 function renderFood() {
   const tbody = document.querySelector('#table-food tbody');
   tbody.innerHTML = '';
-  const list = [...data.food].sort((a,b) => (b.date+b.time).localeCompare(a.date+a.time));
+  const list = [...data.food].sort((a,b) => (b.date+b.id).localeCompare(a.date+a.id));
   document.getElementById('empty-food').style.display = list.length ? 'none' : 'block';
   list.forEach(item => {
     const tr = document.createElement('tr');
-    const photoCell = item.photo
-      ? `<img class="thumb" src="${item.photo}" onclick="openLightbox(photoLookup('food','${item.id}'))">`
-      : '-';
     let calorieCell = '-';
     if (item.calorie) {
       const cst = calorieStatus(item.meal, Number(item.calorie));
       calorieCell = `<span class="badge ${cst.cls}">${item.calorie}kcal · ${cst.text}</span>`;
     }
-    tr.innerHTML = `<td>${item.date}</td><td>${item.time}</td><td>${item.meal}</td>
-      <td class="left">${item.menu||''}</td><td>${calorieCell}</td><td>${photoCell}</td><td class="left">${item.note||''}</td>
+    tr.innerHTML = `<td>${item.date}</td><td>${item.meal}</td>
+      <td class="left">${item.menu||''}</td><td>${calorieCell}</td><td class="left">${item.note||''}</td>
       <td class="del-cell"><button class="btn del" onclick="deleteItem('food','${item.id}')">삭제</button></td>`;
     tbody.appendChild(tr);
   });
@@ -875,7 +794,7 @@ function renderAll() {
       const cst = calorieStatus(i.meal, Number(i.calorie));
       calTag = ` · ${i.calorie}kcal(${cst.text})`;
     }
-    rows.push({date:i.date, time:i.time, icon:'🍽️', label:'음식', content:`[${i.meal}] ${i.menu||'(사진 참고)'}${calTag}${i.photo ? ' 📷' : ''}`, note:i.note||''});
+    rows.push({date:i.date, time:'', icon:'🍽️', label:'음식', content:`[${i.meal}] ${i.menu||''}${calTag}`, note:i.note||''});
   });
   data.exercise.forEach(i => rows.push({date:i.date, time:i.time, icon:'🏃', label:'운동', content:`${i.type} ${i.duration}분`, note:i.note||''}));
   data.fasting.forEach(i => {
@@ -1357,15 +1276,14 @@ document.getElementById('form-food').addEventListener('submit', function(e) {
   e.preventDefault();
   const f = new FormData(e.target);
   const menu = f.get('menu');
-  if (!menu && !pendingFoodPhoto) { alert('메뉴를 적거나 사진을 첨부해주세요.'); return; }
+  if (!menu) { alert('메뉴를 적어주세요.'); return; }
   const calorie = f.get('calorie') ? Number(f.get('calorie')) : null;
-  data.food.push({ id: uid(), date: f.get('date'), time: f.get('time'), meal: f.get('meal'), menu: menu, calorie: calorie, note: f.get('note'), photo: pendingFoodPhoto });
+  data.food.push({ id: uid(), date: f.get('date'), meal: f.get('meal'), menu: menu, calorie: calorie, note: f.get('note') });
   if (menu && menu.trim() && calorie) {
     data.customFoodDB[menu.trim()] = calorie;
   }
   saveData(data); renderAllTabs(); e.target.reset();
   e.target.querySelector('[name="date"]').value = currentGlobalDate;
-  clearFoodPhoto();
   document.getElementById('calorie-hint').style.display = 'none';
 });
 document.getElementById('form-exercise').addEventListener('submit', function(e) {
