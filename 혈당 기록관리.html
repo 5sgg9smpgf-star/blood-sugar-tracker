@@ -126,6 +126,9 @@
   .s-value { font-size:14px; font-weight:bold; color:#1B5E7A; }
   #tab-chart canvas { width:100%; height:auto; display:block; }
   #tab-chart .card h2 { color:#128572; }
+  .chart-legend { font-size:11px; color:#666; margin-bottom:2mm; }
+  .legend-dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin:0 1.5mm 0 3mm; vertical-align:middle; }
+  .legend-dot:first-child { margin-left:0; }
 
   #tab-analysis .card h2 { color:#5B3E92; }
   .period-btns { display:flex; gap:2mm; }
@@ -481,6 +484,19 @@
     <div class="card">
       <h2>🩸 혈당 추이 (최근 20건)</h2>
       <canvas id="chart-glucose" width="700" height="190"></canvas>
+    </div>
+    <div class="card">
+      <h2>😴 수면 시간 (최근 14일)</h2>
+      <canvas id="chart-sleep" width="700" height="170"></canvas>
+    </div>
+    <div class="card">
+      <h2>🫀 혈압 추이 (최근 14일)</h2>
+      <div class="chart-legend"><span class="legend-dot" style="background:#C0392B;"></span>수축기 <span class="legend-dot" style="background:#5DADE2;"></span>이완기</div>
+      <canvas id="chart-bp" width="700" height="190"></canvas>
+    </div>
+    <div class="card">
+      <h2>🎯 관리 점수 추이 (최근 14일)</h2>
+      <canvas id="chart-score" width="700" height="170"></canvas>
     </div>
   </div>
 
@@ -1122,6 +1138,16 @@ function lastNDates(n) {
   }
   return arr;
 }
+function dateWindowEnding(endDateStr, len) {
+  const arr = [];
+  const end = new Date(endDateStr);
+  for (let i = len-1; i >= 0; i--) {
+    const dt = new Date(end);
+    dt.setDate(end.getDate() - i);
+    arr.push(dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0'));
+  }
+  return arr;
+}
 function sumByDate(list, dateField, valueField) {
   const map = {};
   list.forEach(i => {
@@ -1170,6 +1196,107 @@ function drawLineChart(canvasId, labels, values, color) {
       ctx.fillStyle = '#333'; ctx.font='8.5px sans-serif'; ctx.textAlign='center';
       ctx.fillText(String(val), x, y-6);
     }
+  });
+}
+
+function drawLineChartGaps(canvasId, labels, values, color, fixedMax) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+  const marginL = 34, marginB = 22, marginT = 14, marginR = 10;
+  const chartW = W - marginL - marginR;
+  const chartH = H - marginT - marginB;
+  const validValues = values.filter(v => v != null);
+  const maxVal = fixedMax || Math.max(1, ...(validValues.length ? validValues : [1])) * 1.15;
+  ctx.strokeStyle = '#eee'; ctx.fillStyle='#999'; ctx.font = '9px sans-serif'; ctx.textAlign='right';
+  const steps = 4;
+  for (let s=0; s<=steps; s++) {
+    const y = marginT + chartH - (chartH * s/steps);
+    ctx.beginPath(); ctx.moveTo(marginL, y); ctx.lineTo(W-marginR, y); ctx.stroke();
+    ctx.fillText(String(Math.round(maxVal * s/steps)), marginL-4, y+3);
+  }
+  if (validValues.length === 0) {
+    ctx.fillStyle='#999'; ctx.font='11px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('데이터 없음', W/2, H/2);
+    return;
+  }
+  const stepX = chartW/(labels.length>1 ? labels.length-1 : 1);
+  ctx.strokeStyle = color; ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  let started = false;
+  labels.forEach((lab, idx) => {
+    const val = values[idx];
+    if (val == null) { started = false; return; }
+    const x = marginL + idx*stepX;
+    const y = marginT + chartH - chartH*(val/maxVal);
+    if (!started) { ctx.moveTo(x,y); started = true; } else { ctx.lineTo(x,y); }
+  });
+  ctx.stroke();
+  labels.forEach((lab, idx) => {
+    const x = marginL + idx*stepX;
+    ctx.fillStyle = '#666'; ctx.font='8px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(shortDate(lab), x, H-6);
+    const val = values[idx];
+    if (val == null) return;
+    const y = marginT + chartH - chartH*(val/maxVal);
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(x, y, 2.8, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#333'; ctx.font='8.5px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(String(Math.round(val)), x, y-6);
+  });
+}
+
+function drawDualLineChart(canvasId, labels, valuesA, valuesB, colorA, colorB) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+  const marginL = 34, marginB = 22, marginT = 14, marginR = 10;
+  const chartW = W - marginL - marginR;
+  const chartH = H - marginT - marginB;
+  const allVals = [...valuesA, ...valuesB].filter(v => v != null);
+  const maxVal = Math.max(1, ...(allVals.length ? allVals : [1])) * 1.15;
+  ctx.strokeStyle = '#eee'; ctx.fillStyle='#999'; ctx.font = '9px sans-serif'; ctx.textAlign='right';
+  const steps = 4;
+  for (let s=0; s<=steps; s++) {
+    const y = marginT + chartH - (chartH * s/steps);
+    ctx.beginPath(); ctx.moveTo(marginL, y); ctx.lineTo(W-marginR, y); ctx.stroke();
+    ctx.fillText(String(Math.round(maxVal * s/steps)), marginL-4, y+3);
+  }
+  if (allVals.length === 0) {
+    ctx.fillStyle='#999'; ctx.font='11px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('데이터 없음', W/2, H/2);
+    return;
+  }
+  const stepX = chartW/(labels.length>1 ? labels.length-1 : 1);
+  function drawSeries(values, color) {
+    ctx.strokeStyle = color; ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    let started = false;
+    labels.forEach((lab, idx) => {
+      const val = values[idx];
+      if (val == null) { started = false; return; }
+      const x = marginL + idx*stepX;
+      const y = marginT + chartH - chartH*(val/maxVal);
+      if (!started) { ctx.moveTo(x,y); started = true; } else { ctx.lineTo(x,y); }
+    });
+    ctx.stroke();
+    labels.forEach((lab, idx) => {
+      const val = values[idx];
+      if (val == null) return;
+      const x = marginL + idx*stepX;
+      const y = marginT + chartH - chartH*(val/maxVal);
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI*2); ctx.fill();
+    });
+  }
+  drawSeries(valuesA, colorA);
+  drawSeries(valuesB, colorB);
+  ctx.fillStyle = '#666'; ctx.font='8px sans-serif'; ctx.textAlign='center';
+  labels.forEach((lab, idx) => {
+    const x = marginL + idx*stepX;
+    ctx.fillText(shortDate(lab), x, H-6);
   });
 }
 
@@ -1255,6 +1382,32 @@ function renderCharts() {
 
   const glist = [...data.glucose].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).slice(-20);
   drawGlucoseChart('chart-glucose', glist);
+
+  const sleepSum = {}, sleepCnt = {};
+  data.sleep.forEach(i => {
+    const d = i.end.split('T')[0];
+    const hours = (new Date(i.end)-new Date(i.start))/3600000;
+    sleepSum[d] = (sleepSum[d]||0) + hours;
+    sleepCnt[d] = (sleepCnt[d]||0) + 1;
+  });
+  drawLineChart('chart-sleep', dates, dates.map(d => sleepCnt[d] ? Math.round((sleepSum[d]/sleepCnt[d])*10)/10 : 0), '#37474F');
+
+  const bpSysSum = {}, bpDiaSum = {}, bpCnt = {};
+  data.bp.forEach(i => {
+    bpSysSum[i.date] = (bpSysSum[i.date]||0) + Number(i.systolic);
+    bpDiaSum[i.date] = (bpDiaSum[i.date]||0) + Number(i.diastolic);
+    bpCnt[i.date] = (bpCnt[i.date]||0) + 1;
+  });
+  const bpSysValues = dates.map(d => bpCnt[d] ? Math.round(bpSysSum[d]/bpCnt[d]) : null);
+  const bpDiaValues = dates.map(d => bpCnt[d] ? Math.round(bpDiaSum[d]/bpCnt[d]) : null);
+  drawDualLineChart('chart-bp', dates, bpSysValues, bpDiaValues, '#C0392B', '#5DADE2');
+
+  const scoreValues = dates.map(d => {
+    const windowDates = dateWindowEnding(d, 7);
+    const stats = computeStats(windowDates);
+    return computeOverallScore(stats, 7);
+  });
+  drawLineChartGaps('chart-score', dates, scoreValues, '#6B4FA0', 100);
 
   const todayD = todayStr();
   document.getElementById('sum-calorie').textContent = Math.round(calMap[todayD]||0) + ' kcal';
