@@ -82,6 +82,9 @@
   .btn.bp { background:#C0392B; }
   .btn.print    { background:#2E86AB; }
   .btn.del      { background:#e74c3c; padding: 1mm 2.5mm; font-size:11px; }
+  .btn.edit     { background:#607D8B; padding: 1mm 2.5mm; font-size:11px; margin-right:1mm; }
+  .btn.cancel-edit { background:#999; }
+  .del-cell { white-space:nowrap; }
 
   table { width:100%; border-collapse: collapse; font-size: 11px; margin-top: 2mm; }
   th, td { border:1px solid #ddd; padding: 1.8mm 1.5mm; text-align:center; }
@@ -273,6 +276,7 @@
           </div>
           <div class="form-field grow"><label>메모</label><input type="text" name="note" placeholder="선택 입력"></div>
           <button type="submit" class="btn food">추가</button>
+          <button type="button" class="btn cancel-edit" style="display:none;" onclick="cancelEdit('food')">취소</button>
         </div>
       </form>
       <table id="table-food">
@@ -305,6 +309,7 @@
           <div class="form-field"><label>시간(분)</label><input type="number" name="duration" min="1" placeholder="분" required></div>
           <div class="form-field grow"><label>메모</label><input type="text" name="note" placeholder="선택 입력"></div>
           <button type="submit" class="btn exercise">추가</button>
+          <button type="button" class="btn cancel-edit" style="display:none;" onclick="cancelEdit('exercise')">취소</button>
         </div>
       </form>
       <table id="table-exercise">
@@ -325,6 +330,7 @@
           <div class="form-field"><label>공복 종료</label><input type="datetime-local" name="end" required></div>
           <div class="form-field grow"><label>메모</label><input type="text" name="note" placeholder="선택 입력"></div>
           <button type="submit" class="btn fasting">추가</button>
+          <button type="button" class="btn cancel-edit" style="display:none;" onclick="cancelEdit('fasting')">취소</button>
         </div>
       </form>
       <table id="table-fasting">
@@ -357,6 +363,7 @@
           <div class="form-field"><label>수치(mg/dL)</label><input type="number" name="value" min="1" required></div>
           <div class="form-field grow"><label>메모</label><input type="text" name="note" placeholder="선택 입력"></div>
           <button type="submit" class="btn glucose">추가</button>
+          <button type="button" class="btn cancel-edit" style="display:none;" onclick="cancelEdit('glucose')">취소</button>
         </div>
       </form>
       <table id="table-glucose">
@@ -386,6 +393,7 @@
           </div>
           <div class="form-field grow"><label>메모</label><input type="text" name="note" placeholder="예: 어지러움, 피곤함 등"></div>
           <button type="submit" class="btn condition">추가</button>
+          <button type="button" class="btn cancel-edit" style="display:none;" onclick="cancelEdit('condition')">취소</button>
         </div>
       </form>
       <table id="table-condition">
@@ -412,6 +420,7 @@
           </div>
           <div class="form-field grow"><label>메모</label><input type="text" name="note" placeholder="선택 입력"></div>
           <button type="submit" class="btn sleep">추가</button>
+          <button type="button" class="btn cancel-edit" style="display:none;" onclick="cancelEdit('sleep')">취소</button>
         </div>
       </form>
       <table id="table-sleep">
@@ -435,6 +444,7 @@
           <div class="form-field"><label>맥박</label><input type="number" name="pulse" min="1" placeholder="선택"></div>
           <div class="form-field grow"><label>메모</label><input type="text" name="note" placeholder="선택 입력"></div>
           <button type="submit" class="btn bp">추가</button>
+          <button type="button" class="btn cancel-edit" style="display:none;" onclick="cancelEdit('bp')">취소</button>
         </div>
       </form>
       <table id="table-bp">
@@ -686,7 +696,7 @@ function renderBP() {
     tr.innerHTML = `<td>${item.date}</td><td>${item.time}</td><td>${item.systolic}/${item.diastolic}</td>
       <td>${item.pulse||'-'}</td><td><span class="badge ${st.cls}">${st.text}</span></td>
       <td class="left">${item.note||''}</td>
-      <td class="del-cell"><button class="btn del" onclick="deleteItem('bp','${item.id}')">삭제</button></td>`;
+      <td class="del-cell"><button class="btn edit" onclick="editBP('${item.id}')">수정</button><button class="btn del" onclick="deleteItem('bp','${item.id}')">삭제</button></td>`;
     tbody.appendChild(tr);
   });
 }
@@ -711,7 +721,7 @@ function renderCondition() {
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${item.date}</td><td><span class="badge ${b.cls}">${b.emoji} ${item.mood}</span></td>
       <td class="left">${item.note||''}</td>
-      <td class="del-cell"><button class="btn del" onclick="deleteItem('condition','${item.id}')">삭제</button></td>`;
+      <td class="del-cell"><button class="btn edit" onclick="editCondition('${item.id}')">수정</button><button class="btn del" onclick="deleteItem('condition','${item.id}')">삭제</button></td>`;
     tbody.appendChild(tr);
   });
 }
@@ -725,7 +735,7 @@ function renderSleep() {
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${item.start.replace('T',' ')}</td><td>${item.end.replace('T',' ')}</td>
       <td>${fmtDur(hours)}</td><td>${item.quality||''}</td><td class="left">${item.note||''}</td>
-      <td class="del-cell"><button class="btn del" onclick="deleteItem('sleep','${item.id}')">삭제</button></td>`;
+      <td class="del-cell"><button class="btn edit" onclick="editSleep('${item.id}')">수정</button><button class="btn del" onclick="deleteItem('sleep','${item.id}')">삭제</button></td>`;
     tbody.appendChild(tr);
   });
 }
@@ -743,7 +753,7 @@ function renderFood() {
     }
     tr.innerHTML = `<td>${item.date}</td><td>${item.meal}</td>
       <td class="left">${item.menu||''}</td><td>${calorieCell}</td><td class="left">${item.note||''}</td>
-      <td class="del-cell"><button class="btn del" onclick="deleteItem('food','${item.id}')">삭제</button></td>`;
+      <td class="del-cell"><button class="btn edit" onclick="editFood('${item.id}')">수정</button><button class="btn del" onclick="deleteItem('food','${item.id}')">삭제</button></td>`;
     tbody.appendChild(tr);
   });
 }
@@ -756,7 +766,7 @@ function renderExercise() {
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${item.date}</td><td>${item.time}</td><td>${item.type}</td>
       <td>${item.duration}</td><td class="left">${item.note||''}</td>
-      <td class="del-cell"><button class="btn del" onclick="deleteItem('exercise','${item.id}')">삭제</button></td>`;
+      <td class="del-cell"><button class="btn edit" onclick="editExercise('${item.id}')">수정</button><button class="btn del" onclick="deleteItem('exercise','${item.id}')">삭제</button></td>`;
     tbody.appendChild(tr);
   });
 }
@@ -770,7 +780,7 @@ function renderFasting() {
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${item.start.replace('T',' ')}</td><td>${item.end.replace('T',' ')}</td>
       <td>${fmtDur(hours)}</td><td class="left">${item.note||''}</td>
-      <td class="del-cell"><button class="btn del" onclick="deleteItem('fasting','${item.id}')">삭제</button></td>`;
+      <td class="del-cell"><button class="btn edit" onclick="editFasting('${item.id}')">수정</button><button class="btn del" onclick="deleteItem('fasting','${item.id}')">삭제</button></td>`;
     tbody.appendChild(tr);
   });
 }
@@ -785,7 +795,7 @@ function renderGlucose() {
     tr.innerHTML = `<td>${item.date}</td><td>${item.time}</td><td>${item.type}</td>
       <td>${item.value}</td><td><span class="badge ${st.cls}">${st.text}</span></td>
       <td class="left">${item.note||''}</td>
-      <td class="del-cell"><button class="btn del" onclick="deleteItem('glucose','${item.id}')">삭제</button></td>`;
+      <td class="del-cell"><button class="btn edit" onclick="editGlucose('${item.id}')">수정</button><button class="btn del" onclick="deleteItem('glucose','${item.id}')">삭제</button></td>`;
     tbody.appendChild(tr);
   });
 }
@@ -1257,8 +1267,110 @@ function renderCharts() {
 
 function deleteItem(type, id) {
   data[type] = data[type].filter(i => i.id !== id);
+  if (editState.type === type && editState.id === id) exitEditMode(type);
   saveData(data);
   renderAllTabs();
+}
+
+let editState = { type: null, id: null };
+
+function enterEditMode(type, id) {
+  editState = { type, id };
+  const form = document.getElementById('form-' + type);
+  form.querySelector('button[type="submit"]').textContent = '수정 완료';
+  const cancelBtn = form.querySelector('.cancel-edit');
+  if (cancelBtn) cancelBtn.style.display = 'inline-block';
+  switchTab(type);
+  form.scrollIntoView({behavior:'smooth', block:'start'});
+}
+function exitEditMode(type) {
+  editState = { type: null, id: null };
+  const form = document.getElementById('form-' + type);
+  form.querySelector('button[type="submit"]').textContent = '추가';
+  const cancelBtn = form.querySelector('.cancel-edit');
+  if (cancelBtn) cancelBtn.style.display = 'none';
+}
+function cancelEdit(type) {
+  exitEditMode(type);
+  const form = document.getElementById('form-' + type);
+  form.reset();
+  if (form.querySelector('[name="date"]')) form.querySelector('[name="date"]').value = currentGlobalDate;
+  if (type === 'food') document.getElementById('calorie-hint').style.display = 'none';
+}
+
+function editFood(id) {
+  const item = data.food.find(i => i.id === id);
+  if (!item) return;
+  const form = document.getElementById('form-food');
+  form.querySelector('[name="date"]').value = item.date;
+  form.querySelector('[name="meal"]').value = item.meal;
+  form.querySelector('[name="menu"]').value = item.menu || '';
+  form.querySelector('[name="calorie"]').value = item.calorie || '';
+  form.querySelector('[name="note"]').value = item.note || '';
+  document.getElementById('calorie-hint').style.display = 'none';
+  enterEditMode('food', id);
+}
+function editExercise(id) {
+  const item = data.exercise.find(i => i.id === id);
+  if (!item) return;
+  const form = document.getElementById('form-exercise');
+  form.querySelector('[name="date"]').value = item.date;
+  form.querySelector('[name="time"]').value = item.time;
+  form.querySelector('[name="type"]').value = item.type;
+  form.querySelector('[name="duration"]').value = item.duration;
+  form.querySelector('[name="note"]').value = item.note || '';
+  enterEditMode('exercise', id);
+}
+function editFasting(id) {
+  const item = data.fasting.find(i => i.id === id);
+  if (!item) return;
+  const form = document.getElementById('form-fasting');
+  form.querySelector('[name="start"]').value = item.start;
+  form.querySelector('[name="end"]').value = item.end;
+  form.querySelector('[name="note"]').value = item.note || '';
+  enterEditMode('fasting', id);
+}
+function editGlucose(id) {
+  const item = data.glucose.find(i => i.id === id);
+  if (!item) return;
+  const form = document.getElementById('form-glucose');
+  form.querySelector('[name="date"]').value = item.date;
+  form.querySelector('[name="time"]').value = item.time;
+  form.querySelector('[name="type"]').value = item.type;
+  form.querySelector('[name="value"]').value = item.value;
+  form.querySelector('[name="note"]').value = item.note || '';
+  enterEditMode('glucose', id);
+}
+function editCondition(id) {
+  const item = data.condition.find(i => i.id === id);
+  if (!item) return;
+  const form = document.getElementById('form-condition');
+  form.querySelector('[name="date"]').value = item.date;
+  form.querySelector('[name="mood"]').value = item.mood;
+  form.querySelector('[name="note"]').value = item.note || '';
+  enterEditMode('condition', id);
+}
+function editSleep(id) {
+  const item = data.sleep.find(i => i.id === id);
+  if (!item) return;
+  const form = document.getElementById('form-sleep');
+  form.querySelector('[name="start"]').value = item.start;
+  form.querySelector('[name="end"]').value = item.end;
+  form.querySelector('[name="quality"]').value = item.quality;
+  form.querySelector('[name="note"]').value = item.note || '';
+  enterEditMode('sleep', id);
+}
+function editBP(id) {
+  const item = data.bp.find(i => i.id === id);
+  if (!item) return;
+  const form = document.getElementById('form-bp');
+  form.querySelector('[name="date"]').value = item.date;
+  form.querySelector('[name="time"]').value = item.time;
+  form.querySelector('[name="systolic"]').value = item.systolic;
+  form.querySelector('[name="diastolic"]').value = item.diastolic;
+  form.querySelector('[name="pulse"]').value = item.pulse || '';
+  form.querySelector('[name="note"]').value = item.note || '';
+  enterEditMode('bp', id);
 }
 
 function todayStr() {
@@ -1283,7 +1395,12 @@ document.getElementById('form-food').addEventListener('submit', function(e) {
   const menu = f.get('menu');
   if (!menu) { alert('메뉴를 적어주세요.'); return; }
   const calorie = f.get('calorie') ? Number(f.get('calorie')) : null;
-  data.food.push({ id: uid(), date: f.get('date'), meal: f.get('meal'), menu: menu, calorie: calorie, note: f.get('note') });
+  if (editState.type === 'food') {
+    Object.assign(data.food.find(i => i.id === editState.id), { date: f.get('date'), meal: f.get('meal'), menu: menu, calorie: calorie, note: f.get('note') });
+    exitEditMode('food');
+  } else {
+    data.food.push({ id: uid(), date: f.get('date'), meal: f.get('meal'), menu: menu, calorie: calorie, note: f.get('note') });
+  }
   if (menu && menu.trim() && calorie) {
     data.customFoodDB[menu.trim()] = calorie;
   }
@@ -1294,7 +1411,12 @@ document.getElementById('form-food').addEventListener('submit', function(e) {
 document.getElementById('form-exercise').addEventListener('submit', function(e) {
   e.preventDefault();
   const f = new FormData(e.target);
-  data.exercise.push({ id: uid(), date: f.get('date'), time: f.get('time'), type: f.get('type'), duration: f.get('duration'), note: f.get('note') });
+  if (editState.type === 'exercise') {
+    Object.assign(data.exercise.find(i => i.id === editState.id), { date: f.get('date'), time: f.get('time'), type: f.get('type'), duration: f.get('duration'), note: f.get('note') });
+    exitEditMode('exercise');
+  } else {
+    data.exercise.push({ id: uid(), date: f.get('date'), time: f.get('time'), type: f.get('type'), duration: f.get('duration'), note: f.get('note') });
+  }
   saveData(data); renderAllTabs(); e.target.reset();
   e.target.querySelector('[name="date"]').value = currentGlobalDate;
 });
@@ -1303,13 +1425,23 @@ document.getElementById('form-fasting').addEventListener('submit', function(e) {
   const f = new FormData(e.target);
   const start = f.get('start'), end = f.get('end');
   if (new Date(end) <= new Date(start)) { alert('종료 시간이 시작 시간보다 나중이어야 해요.'); return; }
-  data.fasting.push({ id: uid(), start, end, note: f.get('note') });
+  if (editState.type === 'fasting') {
+    Object.assign(data.fasting.find(i => i.id === editState.id), { start, end, note: f.get('note') });
+    exitEditMode('fasting');
+  } else {
+    data.fasting.push({ id: uid(), start, end, note: f.get('note') });
+  }
   saveData(data); renderAllTabs(); e.target.reset();
 });
 document.getElementById('form-glucose').addEventListener('submit', function(e) {
   e.preventDefault();
   const f = new FormData(e.target);
-  data.glucose.push({ id: uid(), date: f.get('date'), time: f.get('time'), type: f.get('type'), value: f.get('value'), note: f.get('note') });
+  if (editState.type === 'glucose') {
+    Object.assign(data.glucose.find(i => i.id === editState.id), { date: f.get('date'), time: f.get('time'), type: f.get('type'), value: f.get('value'), note: f.get('note') });
+    exitEditMode('glucose');
+  } else {
+    data.glucose.push({ id: uid(), date: f.get('date'), time: f.get('time'), type: f.get('type'), value: f.get('value'), note: f.get('note') });
+  }
   saveData(data); renderAllTabs(); e.target.reset();
   e.target.querySelector('[name="date"]').value = currentGlobalDate;
 });
@@ -1319,20 +1451,35 @@ document.getElementById('form-sleep').addEventListener('submit', function(e) {
   const f = new FormData(e.target);
   const start = f.get('start'), end = f.get('end');
   if (new Date(end) <= new Date(start)) { alert('기상 시간이 취침 시간보다 나중이어야 해요.'); return; }
-  data.sleep.push({ id: uid(), start, end, quality: f.get('quality'), note: f.get('note') });
+  if (editState.type === 'sleep') {
+    Object.assign(data.sleep.find(i => i.id === editState.id), { start, end, quality: f.get('quality'), note: f.get('note') });
+    exitEditMode('sleep');
+  } else {
+    data.sleep.push({ id: uid(), start, end, quality: f.get('quality'), note: f.get('note') });
+  }
   saveData(data); renderAllTabs(); e.target.reset();
 });
 document.getElementById('form-condition').addEventListener('submit', function(e) {
   e.preventDefault();
   const f = new FormData(e.target);
-  data.condition.push({ id: uid(), date: f.get('date'), mood: f.get('mood'), note: f.get('note') });
+  if (editState.type === 'condition') {
+    Object.assign(data.condition.find(i => i.id === editState.id), { date: f.get('date'), mood: f.get('mood'), note: f.get('note') });
+    exitEditMode('condition');
+  } else {
+    data.condition.push({ id: uid(), date: f.get('date'), mood: f.get('mood'), note: f.get('note') });
+  }
   saveData(data); renderAllTabs(); e.target.reset();
   e.target.querySelector('[name="date"]').value = currentGlobalDate;
 });
 document.getElementById('form-bp').addEventListener('submit', function(e) {
   e.preventDefault();
   const f = new FormData(e.target);
-  data.bp.push({ id: uid(), date: f.get('date'), time: f.get('time'), systolic: f.get('systolic'), diastolic: f.get('diastolic'), pulse: f.get('pulse'), note: f.get('note') });
+  if (editState.type === 'bp') {
+    Object.assign(data.bp.find(i => i.id === editState.id), { date: f.get('date'), time: f.get('time'), systolic: f.get('systolic'), diastolic: f.get('diastolic'), pulse: f.get('pulse'), note: f.get('note') });
+    exitEditMode('bp');
+  } else {
+    data.bp.push({ id: uid(), date: f.get('date'), time: f.get('time'), systolic: f.get('systolic'), diastolic: f.get('diastolic'), pulse: f.get('pulse'), note: f.get('note') });
+  }
   saveData(data); renderAllTabs(); e.target.reset();
   e.target.querySelector('[name="date"]').value = currentGlobalDate;
 });
