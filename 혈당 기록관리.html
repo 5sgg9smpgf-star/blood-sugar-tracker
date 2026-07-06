@@ -290,7 +290,12 @@
       <form id="form-exercise">
         <div class="form-row">
           <input type="hidden" name="date">
-          <div class="form-field"><label>시간</label><input type="time" name="time" required></div>
+          <div class="form-field">
+            <label>시간대</label>
+            <select name="time">
+              <option>아침</option><option>점심</option><option>저녁</option>
+            </select>
+          </div>
           <div class="form-field">
             <label>운동 종류</label>
             <select name="type">
@@ -303,7 +308,7 @@
         </div>
       </form>
       <table id="table-exercise">
-        <thead><tr><th>날짜</th><th>시간</th><th>운동</th><th>시간(분)</th><th>메모</th><th>삭제</th></tr></thead>
+        <thead><tr><th>날짜</th><th>시간대</th><th>운동</th><th>시간(분)</th><th>메모</th><th>삭제</th></tr></thead>
         <tbody></tbody>
       </table>
       <div class="empty-msg" id="empty-exercise" style="display:none;">운동 기록이 없어요.</div>
@@ -745,7 +750,7 @@ function renderFood() {
 function renderExercise() {
   const tbody = document.querySelector('#table-exercise tbody');
   tbody.innerHTML = '';
-  const list = [...data.exercise].sort((a,b) => (b.date+b.time).localeCompare(a.date+a.time));
+  const list = [...data.exercise].sort((a,b) => (b.date+b.id).localeCompare(a.date+a.id));
   document.getElementById('empty-exercise').style.display = list.length ? 'none' : 'block';
   list.forEach(item => {
     const tr = document.createElement('tr');
@@ -796,7 +801,7 @@ function renderAll() {
     }
     rows.push({date:i.date, time:'', icon:'🍽️', label:'음식', content:`[${i.meal}] ${i.menu||''}${calTag}`, note:i.note||''});
   });
-  data.exercise.forEach(i => rows.push({date:i.date, time:i.time, icon:'🏃', label:'운동', content:`${i.type} ${i.duration}분`, note:i.note||''}));
+  data.exercise.forEach(i => rows.push({date:i.date, time:'', icon:'🏃', label:'운동', content:`[${i.time}] ${i.type} ${i.duration}분`, note:i.note||''}));
   data.fasting.forEach(i => {
     const hours = (new Date(i.end) - new Date(i.start)) / 3600000;
     const d = i.start.split('T')[0], t = i.start.split('T')[1];
@@ -1334,7 +1339,7 @@ document.getElementById('form-bp').addEventListener('submit', function(e) {
 
 // 기본값: 오늘 날짜 / 현재 시간
 setGlobalDate(todayStr());
-['form-food','form-exercise','form-glucose','form-condition','form-bp'].forEach(id => {
+['form-glucose','form-bp'].forEach(id => {
   const form = document.getElementById(id);
   if (form.querySelector('[name="time"]')) form.querySelector('[name="time"]').value = nowTimeStr();
 });
