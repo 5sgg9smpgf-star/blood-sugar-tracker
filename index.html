@@ -276,7 +276,7 @@
           </div>
           <div class="form-field">
             <label>예상 칼로리</label>
-            <input type="number" name="calorie" min="0" placeholder="kcal (끼니 700↑/간식 300↑ 주의)">
+            <input type="number" name="calorie" min="0" placeholder="kcal (끼니 700↑/간식 300↑ 주의)" oninput="calorieAutoFilled=false">
             <div class="calorie-hint" id="calorie-hint" style="display:none;"></div>
           </div>
           <div class="form-field grow"><label>메모</label><input type="text" name="note" placeholder="선택 입력"></div>
@@ -757,6 +757,8 @@ function renderMenuDatalist() {
   list.innerHTML = Object.keys(data.customFoodDB).map(name => `<option value="${name}">`).join('');
 }
 
+let calorieAutoFilled = false;
+
 function handleMenuInput(text) {
   const hintEl = document.getElementById('calorie-hint');
   const calorieInput = document.querySelector('#form-food [name="calorie"]');
@@ -764,7 +766,10 @@ function handleMenuInput(text) {
   if (est) {
     hintEl.textContent = `🔍 ${est.matched.join(' + ')} 자동 계산: 약 ${est.total}kcal (다르면 직접 수정하세요)`;
     hintEl.style.display = 'block';
-    if (!calorieInput.value) calorieInput.value = est.total;
+    if (!calorieInput.value || calorieAutoFilled) {
+      calorieInput.value = est.total;
+      calorieAutoFilled = true;
+    }
   } else {
     hintEl.style.display = 'none';
   }
@@ -1571,7 +1576,7 @@ function cancelEdit(type) {
   const form = document.getElementById('form-' + type);
   form.reset();
   if (form.querySelector('[name="date"]')) form.querySelector('[name="date"]').value = currentGlobalDate;
-  if (type === 'food') document.getElementById('calorie-hint').style.display = 'none';
+  if (type === 'food') { document.getElementById('calorie-hint').style.display = 'none'; calorieAutoFilled = false; }
 }
 
 function editFood(id) {
@@ -1584,6 +1589,7 @@ function editFood(id) {
   form.querySelector('[name="calorie"]').value = item.calorie || '';
   form.querySelector('[name="note"]').value = item.note || '';
   document.getElementById('calorie-hint').style.display = 'none';
+  calorieAutoFilled = false;
   enterEditMode('food', id);
 }
 function editExercise(id) {
@@ -1683,6 +1689,7 @@ document.getElementById('form-food').addEventListener('submit', function(e) {
   saveData(data); renderAllTabs(); e.target.reset();
   e.target.querySelector('[name="date"]').value = currentGlobalDate;
   document.getElementById('calorie-hint').style.display = 'none';
+  calorieAutoFilled = false;
 });
 document.getElementById('form-exercise').addEventListener('submit', function(e) {
   e.preventDefault();
