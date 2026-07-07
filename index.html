@@ -1133,19 +1133,27 @@ function renderFriendAnalysis(cur, prev, effN) {
   const todaySleep = data.sleep.find(s => s.end.split('T')[0] === today);
   const todayExercise = data.exercise.filter(e => e.date === today);
   const todayDinner = data.food.find(f => f.date === today && f.meal === '저녁');
+  const walkToday = todayExercise.find(e => e.type === '걷기');
 
-  // 1. 오늘 기록에서 눈에 띄는 점
   const warnToday = todayGlucose.find(g => glucoseStatus(g.type, Number(g.value)).cls === 'warn');
   const pick = warnToday || todayGlucose[todayGlucose.length-1];
+  const pickStatus = pick ? glucoseStatus(pick.type, Number(pick.value)) : null;
+  const focusIsFasting = !!(pick && pick.type === '공복');
+  const focusIsPostMeal = !!(pick && pick.type.includes('후'));
+  const focusWarn = !!(pickStatus && pickStatus.cls === 'warn');
+
+  // 1. 오늘 기록에서 눈에 띄는 점
   let todayText = '';
   if (pick) {
-    const st = glucoseStatus(pick.type, Number(pick.value));
-    todayText += `${pick.value}은 ${st.cls==='warn' ? '조금 신경 써야 하는' : '괜찮은'} 수치야. 하지만 이 하루만 보고 판단하지는 않을 거야.\n\n`;
-    if (todaySleep) {
+    todayText += `${pick.type} ${pick.value}은 ${focusWarn ? '조금 신경 써야 하는' : '괜찮은'} 수치야. 하지만 이 하루만 보고 판단하지는 않을 거야.\n\n`;
+    if (todaySleep && focusWarn) {
       const sleepHours = ((new Date(todaySleep.end)-new Date(todaySleep.start))/3600000).toFixed(1);
-      if (st.cls === 'warn') {
-        todayText += `오히려 나는 잠을 ${sleepHours}시간 잤는데도 ${pick.value}이라는 점을 기억해 둘게.\n\n`;
-      }
+      todayText += `오히려 나는 잠을 ${sleepHours}시간 잤는데도 ${pick.value}이라는 점을 기억해 둘게.\n\n`;
+    }
+    if (focusWarn) {
+      todayText += focusIsFasting
+        ? `공복 수치니까 어제 저녁 시간이나 공복 유지 시간이랑 관련 있을 수 있어. 내일 미션이랑 이번 주 실험으로 같이 확인해보자.\n\n`
+        : `식후 수치니까 그 끼니 양이나 식후 활동이랑 관련 있을 수 있어. 내일 미션이랑 이번 주 실험으로 같이 확인해보자.\n\n`;
     }
   } else {
     todayText += `오늘은 혈당 기록이 아직 없네. 그래도 꾸준히 기록하는 습관 자체가 잘하고 있는 거야.\n\n`;
@@ -1153,30 +1161,44 @@ function renderFriendAnalysis(cur, prev, effN) {
   todayText += `앞으로 1~2주 데이터를 모으면 이런 걸 볼 수 있어.\n· 저녁 시간을 앞당기면 내려가는지\n· 식후 걷기를 한 날이 더 좋은지\n· 주말과 평일 차이가 있는지\n\n그게 훨씬 의미 있는 정보야.`;
   document.getElementById('insight-today').textContent = todayText;
 
-  // 2. 내일 미션
+  // 2. 내일 미션 — 오늘 눈에 띈 포인트(공복/식후)에 맞춰서 결정
   let missionText = '';
-  if (todayDinner) {
-    missionText += `오늘 저녁 챙겨 먹었네! 내일은 저녁 시간을 평소보다 30분만 앞당겨 봐. 그것만 해도 충분해.\n\n`;
+  if (focusIsFasting && focusWarn) {
+    missionText += todayDinner
+      ? `오늘 그 ${pick.value}는 공복 수치였으니까, 저녁 시간이 핵심이야. 내일은 저녁을 평소보다 30분만 앞당겨 봐.\n\n`
+      : `공복 수치가 신경 쓰이니까, 내일은 저녁을 평소보다 30분만 앞당겨 봐.\n\n`;
+    missionText += walkToday ? `그리고 식후 걷기는 오늘처럼 ${walkToday.duration}분 유지!` : `그리고 식후에는 20~30분만 가볍게 걸어보자!`;
+  } else if (focusIsPostMeal && focusWarn) {
+    missionText += `오늘 그 ${pick.value}는 식후 수치였으니까, 내일은 그 끼니 양을 살짝 줄이거나 탄수화물 비중을 낮춰보자.\n\n`;
+    missionText += walkToday ? `그리고 식후 걷기는 오늘처럼 ${walkToday.duration}분 유지, 식후엔 이게 제일 효과적이야!` : `그리고 식사 마치자마자 20~30분만 걸어보자, 식후 혈당엔 이게 제일 효과적이야!`;
   } else {
-    missionText += `저녁을 평소보다 30분만 앞당겨 봐. 그것만 해도 충분해.\n\n`;
+    missionText += todayDinner
+      ? `오늘 저녁 챙겨 먹었네! 내일은 저녁 시간을 평소보다 30분만 앞당겨 봐. 그것만 해도 충분해.\n\n`
+      : `저녁을 평소보다 30분만 앞당겨 봐. 그것만 해도 충분해.\n\n`;
+    missionText += walkToday ? `그리고 식후 걷기는 오늘처럼 ${walkToday.duration}분 유지!` : `그리고 식후에는 20~30분만 가볍게 걸어보자!`;
   }
-  const walkToday = todayExercise.find(e => e.type === '걷기');
-  missionText += walkToday
-    ? `그리고 식후 걷기는 오늘처럼 ${walkToday.duration}분 유지!`
-    : `그리고 식후에는 20~30분만 가볍게 걸어보자!`;
   document.getElementById('insight-mission').textContent = missionText;
 
-  // 3. 꼭 하나 해보자
+  // 3. 꼭 하나 해보자 — 오늘 포인트를 검증/보완하는 실험
   const postMealCount = cur.glist.filter(g => g.type.includes('후')).length;
+  const fastingCount = cur.glist.filter(g => g.type === '공복').length;
   let challengeText;
-  if (postMealCount === 0) {
+  if (focusIsFasting && focusWarn) {
+    challengeText = postMealCount === 0
+      ? `이번 주 안에 식후 2시간 혈당도 한 번 재줘.\n공복이랑 식후를 같이 보면 오늘 ${pick.value} 같은 수치가 왜 나왔는지 훨씬 정확하게 알 수 있어.`
+      : `내일 미션(저녁 30분 당기기)대로 해보고, 다음 날 아침 공복 혈당을 다시 재서 알려줘.\n효과가 있었는지 바로 비교할 수 있어.`;
+  } else if (focusIsPostMeal && focusWarn) {
+    challengeText = `내일 미션대로 식사량을 줄이거나 식후 걷기를 하고 나서, 같은 끼니 후 2시간에 혈당을 다시 재줘.\n오늘 ${pick.value}이랑 비교하면 효과가 바로 보일 거야.`;
+  } else if (postMealCount === 0) {
     challengeText = `이번 주 안에 식후 2시간 혈당을 한 번만 재줘.\n저녁 식사를 마치고 2시간 정도 지났을 때 측정해서 알려줘.\n\n그 수치가 나오면 지금 혈당 패턴을 훨씬 정확하게 해석할 수 있어.`;
+  } else if (fastingCount === 0) {
+    challengeText = `이번 주 안에 공복 혈당도 한 번 재줘. 식후 기록은 있으니 공복까지 있으면 하루 전체 패턴이 보여.`;
   } else {
-    challengeText = `식후 혈당 기록이 있어서 좋아. 이번 주엔 공복 혈당도 하루 재보자 — 패턴을 더 확실히 볼 수 있어.`;
+    challengeText = `기록이 꾸준히 쌓이고 있어! 이번 주는 평일이랑 주말 수치를 비교해보자 — 패턴 차이가 있는지 궁금해.`;
   }
   document.getElementById('insight-challenge').textContent = challengeText;
 
-  // 4. 친구로서 한마디
+  // 4. 친구로서 한마디 — 오늘 포인트 + 기간 전체 패턴을 하나로 연결
   const fastingVals = cur.glist.filter(g => g.type === '공복').map(g => Number(g.value));
   const fastingAvg = fastingVals.length ? fastingVals.reduce((a,b)=>a+b,0)/fastingVals.length : null;
   const postMealVals = cur.glist.filter(g => g.type.includes('후')).map(g => Number(g.value));
@@ -1184,18 +1206,22 @@ function renderFriendAnalysis(cur, prev, effN) {
   const fastingHigh = fastingAvg != null && fastingAvg > 130;
   const postMealHigh = postMealAvg != null && postMealAvg >= 180;
   const lifestyleGood = (cur.sAvg==null || cur.sAvg>=7) && cur.elist.length>0;
+  const todayRef = focusWarn ? `오늘 눈에 띄었던 그 수치도 같은 흐름 안에 있었어.\n\n` : '';
 
   let friendText;
   if (fastingHigh && postMealHigh) {
-    friendText = lifestyleGood
-      ? `사실 네 기록을 보면서 느낀 건, 생활습관은 꽤 잘하고 있는데 공복혈당이랑 식후 혈당이 둘 다 높다는 거야.\n\n그래서 나는 더더욱 생활습관을 유지하면서 병원에서 재검과 추가 평가를 꼭 받는 것을 추천해.\n\n`
-      : `공복혈당이랑 식후 혈당이 둘 다 높게 나오고 있어. 생활습관도 같이 챙기면서, 병원에서 한 번 재검받아보는 걸 추천해.\n\n`;
+    friendText = (lifestyleGood
+      ? `사실 네 기록을 보면서 느낀 건, 생활습관은 꽤 잘하고 있는데 공복혈당이랑 식후 혈당이 둘 다 높다는 거야.\n\n`
+      : `공복혈당이랑 식후 혈당이 둘 다 높게 나오고 있어.\n\n`) + todayRef +
+      `그래서 나는 생활습관을 유지하면서 병원에서 재검과 추가 평가를 꼭 받는 것을 추천해.\n\n`;
   } else if (fastingHigh) {
-    friendText = lifestyleGood
-      ? `사실 네 기록을 보면서 느낀 건, 생활습관은 꽤 잘하고 있는데 공복혈당만 높다는 거야.\n\n그래서 나는 더더욱 생활습관을 유지하면서 병원에서 공복혈당 재검과 추가 평가를 꼭 받는 것을 추천해.\n\n`
-      : `공복혈당이 계속 높게 나오고 있어. 생활습관도 같이 챙기면서, 병원에서 한 번 재검받아보는 걸 추천해.\n\n`;
+    friendText = (lifestyleGood
+      ? `사실 네 기록을 보면서 느낀 건, 생활습관은 꽤 잘하고 있는데 공복혈당만 높다는 거야.\n\n`
+      : `공복혈당이 계속 높게 나오고 있어.\n\n`) + todayRef +
+      `그래서 나는 생활습관을 유지하면서 병원에서 공복혈당 재검과 추가 평가를 꼭 받는 것을 추천해.\n\n`;
   } else if (postMealHigh) {
-    friendText = `공복혈당은 괜찮은데 식후 혈당이 높게 나오고 있어. 식사량이나 탄수화물을 조금 줄이고, 식후 걷기를 꼭 챙겨보자.\n\n`;
+    friendText = `공복혈당은 괜찮은데 식후 혈당이 높게 나오고 있어.\n\n` + todayRef +
+      `내일 미션이랑 이번 주 실험(식사량 조절, 식후 걷기)을 같이 해보면 확실히 도움이 될 거야.\n\n`;
   } else if (cur.gNormalPct != null && cur.gNormalPct >= 80) {
     friendText = `전체적으로 잘 관리되고 있어! 지금 페이스 그대로 유지하자.\n\n`;
   } else {
