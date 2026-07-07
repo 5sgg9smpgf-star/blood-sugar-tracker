@@ -81,6 +81,8 @@
   .btn.sleep { background:#455A64; }
   .btn.bp { background:#C0392B; }
   .btn.print    { background:#2E86AB; }
+  .btn.export   { background:#2E7D32; }
+  .btn.import   { background:#8D6E63; }
   .btn.del      { background:#e74c3c; padding: 1mm 2.5mm; font-size:11px; }
   .btn.edit     { background:#607D8B; padding: 1mm 2.5mm; font-size:11px; margin-right:1mm; }
   .btn.cancel-edit { background:#999; }
@@ -546,10 +548,13 @@
     </div>
   </div>
 
-  <div class="footer-note">기록은 이 브라우저에 자동 저장돼요 (localStorage). 다른 브라우저·기기에서는 보이지 않으니 주의하세요.</div>
+  <div class="footer-note">기록은 이 브라우저에 자동 저장돼요 (localStorage). 다른 브라우저·기기와는 "내보내기/가져오기"로 맞춰주세요.</div>
 
   <div class="bottom-actions">
     <button class="btn print small" onclick="window.print()">🖨️ 인쇄 / 저장</button>
+    <button class="btn export small" onclick="exportData()">⬇️ 내보내기</button>
+    <button class="btn import small" onclick="document.getElementById('import-file-input').click()">⬆️ 가져오기</button>
+    <input type="file" id="import-file-input" accept="application/json,.json" style="display:none;" onchange="importData(event)">
   </div>
 </div>
 
@@ -571,6 +576,56 @@ if (!data.condition) data.condition = [];
 if (!data.sleep) data.sleep = [];
 if (!data.bp) data.bp = [];
 if (!data.customFoodDB) data.customFoodDB = {};
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '혈당관리_백업_' + todayStr() + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function mergeImportedData(imported) {
+  let addedCount = 0;
+  ['food','exercise','fasting','glucose','condition','sleep','bp'].forEach(type => {
+    if (!Array.isArray(imported[type])) return;
+    const existingIds = new Set(data[type].map(i => i.id));
+    imported[type].forEach(item => {
+      if (item && item.id && !existingIds.has(item.id)) {
+        data[type].push(item);
+        existingIds.add(item.id);
+        addedCount++;
+      }
+    });
+  });
+  if (imported.customFoodDB) {
+    Object.assign(data.customFoodDB, imported.customFoodDB);
+  }
+  return addedCount;
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const imported = JSON.parse(e.target.result);
+      const addedCount = mergeImportedData(imported);
+      saveData(data);
+      renderAllTabs();
+      alert(`가져오기 완료! 새로운 기록 ${addedCount}건을 추가했어요.`);
+    } catch (err) {
+      alert('파일을 읽는 데 실패했어요. 올바른 백업 파일인지 확인해주세요.');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
 
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
