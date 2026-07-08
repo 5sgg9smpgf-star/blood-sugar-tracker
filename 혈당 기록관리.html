@@ -1143,6 +1143,12 @@ function renderFriendAnalysis(cur, prev, effN) {
   const focusIsPostMeal = !!(pick && pick.type.includes('후'));
   const focusWarn = !!(pickStatus && pickStatus.cls === 'warn');
 
+  const timeToMinutes = t => { if (!t) return null; const [h,m] = t.split(':').map(Number); return h*60+m; };
+  const prevDinners = cur.foodList.filter(f => f.meal === '저녁' && f.time && f.date !== today);
+  const prevDinnerAvgMin = prevDinners.length ? prevDinners.reduce((s,f)=>s+timeToMinutes(f.time),0)/prevDinners.length : null;
+  const todayDinnerMin = todayDinner && todayDinner.time ? timeToMinutes(todayDinner.time) : null;
+  const dinnerImproved = prevDinnerAvgMin != null && todayDinnerMin != null && (prevDinnerAvgMin - todayDinnerMin) >= 15;
+
   // 1. 오늘 기록에서 눈에 띄는 점
   let todayText = '';
   if (pick) {
@@ -1165,17 +1171,25 @@ function renderFriendAnalysis(cur, prev, effN) {
   // 2. 내일 미션 — 오늘 눈에 띈 포인트(공복/식후)에 맞춰서 결정
   let missionText = '';
   if (focusIsFasting && focusWarn) {
-    missionText += todayDinner
-      ? `오늘 그 ${pick.value}는 공복 수치였으니까, 저녁 시간이 핵심이야. 내일은 저녁을 평소보다 30분만 앞당겨 봐.\n\n`
-      : `공복 수치가 신경 쓰이니까, 내일은 저녁을 평소보다 30분만 앞당겨 봐.\n\n`;
+    if (dinnerImproved) {
+      missionText += `오늘 저녁을 평소보다 일찍 먹었네, 잘하고 있어! 내일도 비슷한 시간대를 유지해보자.\n\n`;
+    } else if (todayDinner) {
+      missionText += `오늘 그 ${pick.value}는 공복 수치였으니까, 저녁 시간이 핵심이야. 내일은 저녁을 평소보다 30분만 앞당겨 봐.\n\n`;
+    } else {
+      missionText += `공복 수치가 신경 쓰이니까, 내일은 저녁을 평소보다 30분만 앞당겨 봐.\n\n`;
+    }
     missionText += walkToday ? `그리고 식후 걷기는 오늘처럼 ${walkToday.duration}분 유지!` : `그리고 식후에는 20~30분만 가볍게 걸어보자!`;
   } else if (focusIsPostMeal && focusWarn) {
     missionText += `오늘 그 ${pick.value}는 식후 수치였으니까, 내일은 그 끼니 양을 살짝 줄이거나 탄수화물 비중을 낮춰보자.\n\n`;
     missionText += walkToday ? `그리고 식후 걷기는 오늘처럼 ${walkToday.duration}분 유지, 식후엔 이게 제일 효과적이야!` : `그리고 식사 마치자마자 20~30분만 걸어보자, 식후 혈당엔 이게 제일 효과적이야!`;
   } else {
-    missionText += todayDinner
-      ? `오늘 저녁 챙겨 먹었네! 내일은 저녁 시간을 평소보다 30분만 앞당겨 봐. 그것만 해도 충분해.\n\n`
-      : `저녁을 평소보다 30분만 앞당겨 봐. 그것만 해도 충분해.\n\n`;
+    if (dinnerImproved) {
+      missionText += `오늘 저녁을 평소보다 일찍 먹었네, 잘하고 있어! 내일도 비슷한 시간대를 유지해보자.\n\n`;
+    } else if (todayDinner) {
+      missionText += `오늘 저녁 챙겨 먹었네! 내일은 저녁 시간을 평소보다 30분만 앞당겨 봐. 그것만 해도 충분해.\n\n`;
+    } else {
+      missionText += `저녁을 평소보다 30분만 앞당겨 봐. 그것만 해도 충분해.\n\n`;
+    }
     missionText += walkToday ? `그리고 식후 걷기는 오늘처럼 ${walkToday.duration}분 유지!` : `그리고 식후에는 20~30분만 가볍게 걸어보자!`;
   }
   document.getElementById('insight-mission').textContent = missionText;
