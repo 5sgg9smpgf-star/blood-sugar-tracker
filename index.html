@@ -263,6 +263,7 @@
       <form id="form-food">
         <div class="form-row">
           <input type="hidden" name="date">
+          <div class="form-field"><label>시작 시간</label><input type="time" name="time"></div>
           <div class="form-field">
             <label>끼니</label>
             <select name="meal">
@@ -285,7 +286,7 @@
         </div>
       </form>
       <table id="table-food">
-        <thead><tr><th>날짜</th><th>끼니</th><th style="width:30%;">메뉴</th><th>칼로리</th><th>메모</th><th>삭제</th></tr></thead>
+        <thead><tr><th>날짜</th><th>시작 시간</th><th>끼니</th><th style="width:26%;">메뉴</th><th>칼로리</th><th>메모</th><th>삭제</th></tr></thead>
         <tbody></tbody>
       </table>
       <div class="empty-msg" id="empty-food" style="display:none;">음식 기록이 없어요.</div>
@@ -846,7 +847,7 @@ function renderSleep() {
 function renderFood() {
   const tbody = document.querySelector('#table-food tbody');
   tbody.innerHTML = '';
-  const list = [...data.food].sort((a,b) => (b.date+b.id).localeCompare(a.date+a.id));
+  const list = [...data.food].sort((a,b) => (b.date+(b.time||'')+b.id).localeCompare(a.date+(a.time||'')+a.id));
   document.getElementById('empty-food').style.display = list.length ? 'none' : 'block';
   list.forEach(item => {
     const tr = document.createElement('tr');
@@ -855,7 +856,7 @@ function renderFood() {
       const cst = calorieStatus(item.meal, Number(item.calorie));
       calorieCell = `<span class="badge ${cst.cls}">${item.calorie}kcal · ${cst.text}</span>`;
     }
-    tr.innerHTML = `<td>${item.date}</td><td>${item.meal}</td>
+    tr.innerHTML = `<td>${item.date}</td><td>${item.time||'-'}</td><td>${item.meal}</td>
       <td class="left">${item.menu||''}</td><td>${calorieCell}</td><td class="left">${item.note||''}</td>
       <td class="del-cell"><button class="btn edit" onclick="editFood('${item.id}')">수정</button><button class="btn del" onclick="deleteItem('food','${item.id}')">삭제</button></td>`;
     tbody.appendChild(tr);
@@ -913,7 +914,7 @@ function renderAll() {
       const cst = calorieStatus(i.meal, Number(i.calorie));
       calTag = ` · ${i.calorie}kcal(${cst.text})`;
     }
-    rows.push({date:i.date, time:'', icon:'🍽️', label:'음식', content:`[${i.meal}] ${i.menu||''}${calTag}`, note:i.note||''});
+    rows.push({date:i.date, time:i.time||'', icon:'🍽️', label:'음식', content:`[${i.meal}] ${i.menu||''}${calTag}`, note:i.note||''});
   });
   data.exercise.forEach(i => rows.push({date:i.date, time:'', icon:'🏃', label:'운동', content:`[${i.time}] ${i.type} ${i.duration}분`, note:i.note||''}));
   data.fasting.forEach(i => {
@@ -1609,6 +1610,7 @@ function editFood(id) {
   if (!item) return;
   const form = document.getElementById('form-food');
   form.querySelector('[name="date"]').value = item.date;
+  form.querySelector('[name="time"]').value = item.time || '';
   form.querySelector('[name="meal"]').value = item.meal;
   form.querySelector('[name="menu"]').value = item.menu || '';
   form.querySelector('[name="calorie"]').value = item.calorie || '';
@@ -1703,10 +1705,10 @@ document.getElementById('form-food').addEventListener('submit', function(e) {
   if (!menu) { alert('메뉴를 적어주세요.'); return; }
   const calorie = f.get('calorie') ? Number(f.get('calorie')) : null;
   if (editState.type === 'food') {
-    Object.assign(data.food.find(i => i.id === editState.id), { date: f.get('date'), meal: f.get('meal'), menu: menu, calorie: calorie, note: f.get('note') });
+    Object.assign(data.food.find(i => i.id === editState.id), { date: f.get('date'), time: f.get('time'), meal: f.get('meal'), menu: menu, calorie: calorie, note: f.get('note') });
     exitEditMode('food');
   } else {
-    data.food.push({ id: uid(), date: f.get('date'), meal: f.get('meal'), menu: menu, calorie: calorie, note: f.get('note') });
+    data.food.push({ id: uid(), date: f.get('date'), time: f.get('time'), meal: f.get('meal'), menu: menu, calorie: calorie, note: f.get('note') });
   }
   if (menu && menu.trim() && calorie) {
     data.customFoodDB[menu.trim()] = calorie;
@@ -1794,7 +1796,7 @@ document.getElementById('form-bp').addEventListener('submit', function(e) {
 
 // 기본값: 오늘 날짜 / 현재 시간
 setGlobalDate(todayStr());
-['form-glucose','form-bp'].forEach(id => {
+['form-food','form-glucose','form-bp'].forEach(id => {
   const form = document.getElementById(id);
   if (form.querySelector('[name="time"]')) form.querySelector('[name="time"]').value = nowTimeStr();
 });
