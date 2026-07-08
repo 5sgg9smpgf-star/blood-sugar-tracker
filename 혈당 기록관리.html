@@ -1223,19 +1223,28 @@ function renderFriendAnalysis(cur, prev, effN) {
   const lifestyleGood = (cur.sAvg==null || cur.sAvg>=7) && cur.elist.length>0;
   const todayRef = focusWarn ? `오늘 눈에 띄었던 그 수치도 같은 흐름 안에 있었어.\n\n` : '';
 
+  const prevFastingVals = prev.glist.filter(g => g.type === '공복').map(g => Number(g.value));
+  const prevFastingAvg = prevFastingVals.length ? prevFastingVals.reduce((a,b)=>a+b,0)/prevFastingVals.length : null;
+  const prevPostMealVals = prev.glist.filter(g => g.type.includes('후')).map(g => Number(g.value));
+  const prevPostMealAvg = prevPostMealVals.length ? prevPostMealVals.reduce((a,b)=>a+b,0)/prevPostMealVals.length : null;
+  const fastingTrendDown = fastingAvg != null && prevFastingAvg != null && (prevFastingAvg - fastingAvg) >= 3;
+  const postMealTrendDown = postMealAvg != null && prevPostMealAvg != null && (prevPostMealAvg - postMealAvg) >= 3;
+  const fastingTrendNote = fastingTrendDown ? `그래도 지난 기간보다 공복 평균이 ${Math.round(prevFastingAvg-fastingAvg)}만큼 낮아지고 있어서 방향은 맞게 가고 있어.\n\n` : '';
+  const postMealTrendNote = postMealTrendDown ? `그래도 지난 기간보다 식후 평균이 ${Math.round(prevPostMealAvg-postMealAvg)}만큼 낮아지고 있어서 방향은 맞게 가고 있어.\n\n` : '';
+
   let friendText;
   if (fastingHigh && postMealHigh) {
     friendText = (lifestyleGood
       ? `사실 네 기록을 보면서 느낀 건, 생활습관은 꽤 잘하고 있는데 공복혈당이랑 식후 혈당이 둘 다 높다는 거야.\n\n`
-      : `공복혈당이랑 식후 혈당이 둘 다 높게 나오고 있어.\n\n`) + todayRef +
+      : `공복혈당이랑 식후 혈당이 둘 다 높게 나오고 있어.\n\n`) + fastingTrendNote + postMealTrendNote + todayRef +
       `그래서 나는 생활습관을 유지하면서 병원에서 재검과 추가 평가를 꼭 받는 것을 추천해.\n\n`;
   } else if (fastingHigh) {
     friendText = (lifestyleGood
       ? `사실 네 기록을 보면서 느낀 건, 생활습관은 꽤 잘하고 있는데 공복혈당만 높다는 거야.\n\n`
-      : `공복혈당이 계속 높게 나오고 있어.\n\n`) + todayRef +
+      : `공복혈당이 계속 높게 나오고 있어.\n\n`) + fastingTrendNote + todayRef +
       `그래서 나는 생활습관을 유지하면서 병원에서 공복혈당 재검과 추가 평가를 꼭 받는 것을 추천해.\n\n`;
   } else if (postMealHigh) {
-    friendText = `공복혈당은 괜찮은데 식후 혈당이 높게 나오고 있어.\n\n` + todayRef +
+    friendText = `공복혈당은 괜찮은데 식후 혈당이 높게 나오고 있어.\n\n` + postMealTrendNote + todayRef +
       `내일 미션이랑 이번 주 실험(식사량 조절, 식후 걷기)을 같이 해보면 확실히 도움이 될 거야.\n\n`;
   } else if (cur.gNormalPct != null && cur.gNormalPct >= 80) {
     friendText = `전체적으로 잘 관리되고 있어! 지금 페이스 그대로 유지하자.\n\n`;
